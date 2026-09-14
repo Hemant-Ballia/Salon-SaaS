@@ -1,0 +1,725 @@
+// =============================================================================
+// Prisma Schema - Multi-Tenant SaaS (Salons, Barbers, Car Wash, etc.)
+// =============================================================================
+// Single source of truth for ALL database models.
+// Database: Supabase PostgreSQL via PgBouncer (connection pooling)
+// ORM: Prisma v5
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum UserRole {
+  ADMIN
+  BUSINESS
+  STAFF
+  CUSTOMER
+}
+
+enum BusinessType {
+  SALON
+  BEAUTY_PARLOUR
+  BARBER
+  CAR_WASH
+  OTHER
+}
+
+enum BusinessStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+  ACTIVE
+  INACTIVE
+}
+
+enum StaffStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  RESCHEDULED
+  COMPLETED
+  NO_SHOW
+}
+
+enum QueueEntryStatus {
+  WAITING
+  CALLED
+  SERVING
+  COMPLETED
+  SKIPPED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum SubscriptionPlan {
+  FREE
+  BASIC
+  PRO
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum NotificationType {
+  APPOINTMENT_CREATED
+  APPOINTMENT_CONFIRMED
+  APPOINTMENT_CANCELLED
+  APPOINTMENT_RESCHEDULED
+  APPOINTMENT_REMINDER
+  QUEUE_UPDATE
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  OTP
+  SYSTEM
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+enum OtpChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+enum OtpPurpose {
+  EMAIL_VERIFICATION
+  PHONE_VERIFICATION
+  PASSWORD_RESET
+  LOGIN
+  TRANSACTION
+}
+
+enum QrCodeType {
+  BUSINESS
+  SERVICE
+  QUEUE
+}
+
+// =============================================================================
+// MODEL 1: User
+// =============================================================================
+// Central identity record. All roles (ADMIN/BUSINESS/STAFF/CUSTOMER) are Users.
+// Sensitive: passwordHash must NEVER be returned in API responses.
+// =============================================================================
+
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  name            String
+  email           String    @unique
+  phone           String?   @unique
+  passwordHash    String
+  role            UserRole  @default(CUSTOMER)
+  isActive        Boolean   @default(true)
+  isEmailVerified Boolean   @default(false)
+  isPhoneVerified Boolean   @default(false)
+  lastLoginAt     DateTime?
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  ownedBusiness     Business?               @relation("BusinessOwner")
+  customerProfile   Customer?
+  staffProfile      Staff?
+  notifications     Notification[]
+  notificationPrefs NotificationPreference?
+  otpVerifications  OtpVerification[]
+  auditLogs         AuditLog[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([role])
+  @@index([isActive])
+  @@index([createdAt])
+  @@map("users")
+}
+
+// =============================================================================
+// MODEL 2: Business
+// =============================================================================
+// Represents a tenant business (salon, barber, car wash, etc.).
+// ownerId -> User.id where User.role = BUSINESS.
+// Slug must be unique — used for public URLs.
+// =============================================================================
+
+model Business {
+  id            String         @id @default(uuid()) @db.Uuid
+  ownerId       String         @unique @db.Uuid
+  name          String
+  slug          String         @unique
+  businessType  BusinessType   @default(OTHER)
+  description   String?
+  email         String?
+  phone         String?
+  address       String?
+  city          String?
+  state         String?
+  country       String?        @default("IN")
+  pincode       String?
+  latitude      Decimal?       @db.Decimal(10, 8)
+  longitude     Decimal?       @db.Decimal(11, 8)
+  logoUrl       String?
+  coverImageUrl String?
+  status        BusinessStatus @default(PENDING)
+  isActive      Boolean        @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  // Relations
+  owner         User           @relation("BusinessOwner", fields: [ownerId], references: [id])
+  staff         Staff[]
+  services      Service[]
+  appointments  Appointment[]
+  queues        Queue[]
+  payments      Payment[]
+  subscriptions Subscription[]
+  notifications Notification[]
+  qrCodes       QrCode[]
+  auditLogs     AuditLog[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([businessType])
+  @@index([isActive])
+  @@index([city])
+  @@index([createdAt])
+  @@map("businesses")
+}
+
+// =============================================================================
+// MODEL 3: Customer
+// =============================================================================
+// Extended profile for users with role = CUSTOMER.
+// One-to-one with User.
+// =============================================================================
+
+model Customer {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @unique @db.Uuid
+  dateOfBirth     DateTime? @db.Date
+  gender          String?
+  profileImageUrl String?
+  preferences     Json?
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+  queueEntries QueueEntry[]
+  payments     Payment[]
+
+  @@index([userId])
+  @@map("customers")
+}
+
+// =============================================================================
+// MODEL 4: Staff
+// =============================================================================
+// Employee belonging to exactly one Business.
+// userId -> User.id where User.role = STAFF.
+// businessId enforces multi-tenant isolation.
+// =============================================================================
+
+model Staff {
+  id              String      @id @default(uuid()) @db.Uuid
+  userId          String      @unique @db.Uuid
+  businessId      String      @db.Uuid
+  displayName     String
+  designation     String?
+  bio             String?
+  profileImageUrl String?
+  status          StaffStatus @default(ACTIVE)
+  joiningDate     DateTime?   @db.Date
+  deletedAt       DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business     Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  schedules    StaffSchedule[]
+  appointments Appointment[]
+
+  @@index([userId])
+  @@index([businessId])
+  @@index([status])
+  @@map("staff")
+}
+
+// =============================================================================
+// MODEL 5: StaffSchedule
+// =============================================================================
+// Weekly availability schedule for a staff member.
+// Prevents double-booking by defining when staff is available.
+// =============================================================================
+
+model StaffSchedule {
+  id          String    @id @default(uuid()) @db.Uuid
+  staffId     String    @db.Uuid
+  dayOfWeek   DayOfWeek
+  startTime   String
+  endTime     String
+  isAvailable Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, dayOfWeek])
+  @@index([staffId])
+  @@index([dayOfWeek])
+  @@map("staff_schedules")
+}
+
+// =============================================================================
+// MODEL 6: Service
+// =============================================================================
+// A service offered by a Business (e.g., Haircut, Car Wash Basic).
+// Price must use Decimal — never Float — for accurate monetary storage.
+// =============================================================================
+
+model Service {
+  id              String    @id @default(uuid()) @db.Uuid
+  businessId      String    @db.Uuid
+  name            String
+  description     String?
+  durationMinutes Int
+  price           Decimal   @db.Decimal(10, 2)
+  category        String?
+  imageUrl        String?
+  isActive        Boolean   @default(true)
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  business            Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  appointmentServices AppointmentService[]
+  qrCodes             QrCode[]
+
+  @@index([businessId])
+  @@index([isActive])
+  @@index([category])
+  @@index([businessId, isActive])
+  @@map("services")
+}
+
+// =============================================================================
+// MODEL 7: Appointment
+// =============================================================================
+// A booking by a Customer at a Business, optionally assigned to a Staff member.
+// totalAmount is stored server-side — never trusted from client.
+// =============================================================================
+
+model Appointment {
+  id              String            @id @default(uuid()) @db.Uuid
+  businessId      String            @db.Uuid
+  customerId      String            @db.Uuid
+  staffId         String?           @db.Uuid
+  appointmentDate DateTime          @db.Date
+  startTime       String
+  endTime         String
+  status          AppointmentStatus @default(PENDING)
+  totalAmount     Decimal           @db.Decimal(10, 2)
+  notes           String?
+  cancelledAt     DateTime?
+  cancelledBy     String?           @db.Uuid
+  cancelReason    String?
+  deletedAt       DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  business            Business             @relation(fields: [businessId], references: [id])
+  customer            Customer             @relation(fields: [customerId], references: [id])
+  staff               Staff?               @relation(fields: [staffId], references: [id])
+  appointmentServices AppointmentService[]
+  payment             Payment?
+  queueEntry          QueueEntry?
+
+  @@index([businessId])
+  @@index([customerId])
+  @@index([staffId])
+  @@index([appointmentDate])
+  @@index([status])
+  @@index([businessId, appointmentDate])
+  @@index([businessId, status])
+  @@index([customerId, status])
+  @@index([createdAt])
+  @@map("appointments")
+}
+
+// =============================================================================
+// MODEL 8: AppointmentService
+// =============================================================================
+// Join table: which Services are included in an Appointment.
+// priceAtBooking MUST be stored at booking time — historical accuracy is critical.
+// If the service price changes later, past appointments must not be affected.
+// =============================================================================
+
+model AppointmentService {
+  id             String   @id @default(uuid()) @db.Uuid
+  appointmentId  String   @db.Uuid
+  serviceId      String   @db.Uuid
+  quantity       Int      @default(1)
+  priceAtBooking Decimal  @db.Decimal(10, 2)
+  createdAt      DateTime @default(now())
+
+  // Relations
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  service     Service     @relation(fields: [serviceId], references: [id])
+
+  @@unique([appointmentId, serviceId])
+  @@index([appointmentId])
+  @@index([serviceId])
+  @@map("appointment_services")
+}
+
+// =============================================================================
+// MODEL 9: Queue
+// =============================================================================
+// A live service queue belonging to a Business.
+// Each business can have one or more named queues (e.g., "Haircut Queue").
+// =============================================================================
+
+model Queue {
+  id          String    @id @default(uuid()) @db.Uuid
+  businessId  String    @db.Uuid
+  name        String
+  description String?
+  isActive    Boolean   @default(true)
+  maxCapacity Int?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  business Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  entries  QueueEntry[]
+
+  @@index([businessId])
+  @@index([isActive])
+  @@index([businessId, isActive])
+  @@map("queues")
+}
+
+// =============================================================================
+// MODEL 10: QueueEntry
+// =============================================================================
+// A customer's position in a Queue.
+// tokenNumber is assigned sequentially per queue.
+// All timestamps are nullable — filled in as state progresses.
+// =============================================================================
+
+model QueueEntry {
+  id                   String           @id @default(uuid()) @db.Uuid
+  queueId              String           @db.Uuid
+  customerId           String           @db.Uuid
+  appointmentId        String?          @unique @db.Uuid
+  tokenNumber          Int
+  status               QueueEntryStatus @default(WAITING)
+  estimatedWaitMinutes Int?
+  joinedAt             DateTime         @default(now())
+  calledAt             DateTime?
+  servedAt             DateTime?
+  completedAt          DateTime?
+  skippedAt            DateTime?
+  cancelledAt          DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  // Relations
+  queue       Queue        @relation(fields: [queueId], references: [id], onDelete: Cascade)
+  customer    Customer     @relation(fields: [customerId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@unique([queueId, tokenNumber])
+  @@index([queueId])
+  @@index([customerId])
+  @@index([status])
+  @@index([queueId, status])
+  @@index([joinedAt])
+  @@map("queue_entries")
+}
+
+// =============================================================================
+// MODEL 11: Payment
+// =============================================================================
+// Razorpay payment record.
+// amount must use Decimal — never Float.
+// Never trust amount from frontend — always calculated server-side.
+// razorpayOrderId/razorpayPaymentId are stored for reconciliation.
+// =============================================================================
+
+model Payment {
+  id                String        @id @default(uuid()) @db.Uuid
+  businessId        String        @db.Uuid
+  customerId        String        @db.Uuid
+  appointmentId     String?       @unique @db.Uuid
+  razorpayOrderId   String?       @unique
+  razorpayPaymentId String?       @unique
+  razorpaySignature String?
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("INR")
+  status            PaymentStatus @default(CREATED)
+  method            String?
+  metadata          Json?
+  refundedAmount    Decimal?      @db.Decimal(10, 2)
+  refundId          String?
+  refundedAt        DateTime?
+  failureReason     String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  business    Business     @relation(fields: [businessId], references: [id])
+  customer    Customer     @relation(fields: [customerId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@index([businessId])
+  @@index([customerId])
+  @@index([status])
+  @@index([razorpayOrderId])
+  @@index([createdAt])
+  @@index([businessId, status])
+  @@map("payments")
+}
+
+// =============================================================================
+// MODEL 12: Subscription
+// =============================================================================
+// SaaS subscription for a Business.
+// Tracks which pricing plan the business is on and when it expires.
+// =============================================================================
+
+model Subscription {
+  id                     String             @id @default(uuid()) @db.Uuid
+  businessId             String             @db.Uuid
+  plan                   SubscriptionPlan   @default(FREE)
+  status                 SubscriptionStatus @default(TRIAL)
+  startDate              DateTime
+  endDate                DateTime?
+  renewalDate            DateTime?
+  provider               String?
+  providerSubscriptionId String?            @unique
+  metadata               Json?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  // Relations
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([status])
+  @@index([plan])
+  @@index([endDate])
+  @@map("subscriptions")
+}
+
+// =============================================================================
+// MODEL 13: Notification
+// =============================================================================
+// In-app and push notifications for users.
+// businessId is nullable — some notifications are platform-wide (ADMIN).
+// =============================================================================
+
+model Notification {
+  id         String              @id @default(uuid()) @db.Uuid
+  userId     String              @db.Uuid
+  businessId String?             @db.Uuid
+  type       NotificationType
+  channel    NotificationChannel @default(IN_APP)
+  title      String
+  message    String
+  isRead     Boolean             @default(false)
+  readAt     DateTime?
+  metadata   Json?
+  createdAt  DateTime            @default(now())
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([businessId])
+  @@index([isRead])
+  @@index([type])
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// =============================================================================
+// MODEL 14: NotificationPreference
+// =============================================================================
+// Per-user notification channel preferences.
+// One-to-one with User.
+// =============================================================================
+
+model NotificationPreference {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @db.Uuid
+  emailEnabled      Boolean  @default(true)
+  smsEnabled        Boolean  @default(true)
+  whatsappEnabled   Boolean  @default(true)
+  inAppEnabled      Boolean  @default(true)
+  appointmentAlerts Boolean  @default(true)
+  queueAlerts       Boolean  @default(true)
+  paymentAlerts     Boolean  @default(true)
+  marketingEmails   Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notification_preferences")
+}
+
+// =============================================================================
+// MODEL 15: OtpVerification
+// =============================================================================
+// OTP records for email/phone verification, password reset, login.
+// otpHash: bcryptjs hash of the OTP — NEVER store plaintext OTP.
+// Single-use: verifiedAt is set on successful verification.
+// =============================================================================
+
+model OtpVerification {
+  id         String     @id @default(uuid()) @db.Uuid
+  userId     String?    @db.Uuid
+  contact    String
+  channel    OtpChannel
+  purpose    OtpPurpose
+  otpHash    String
+  expiresAt  DateTime
+  attempts   Int        @default(0)
+  verifiedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([contact, channel, purpose])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("otp_verifications")
+}
+
+// =============================================================================
+// MODEL 16: QrCode
+// =============================================================================
+// QR codes for businesses, services, and queues.
+// token is a unique, random, public-safe identifier — no secrets embedded.
+// targetUrl is the URL the QR encodes.
+// =============================================================================
+
+model QrCode {
+  id         String     @id @default(uuid()) @db.Uuid
+  businessId String     @db.Uuid
+  serviceId  String?    @db.Uuid
+  type       QrCodeType
+  token      String     @unique
+  targetUrl  String
+  qrImageUrl String?
+  isActive   Boolean    @default(true)
+  scanCount  Int        @default(0)
+  deletedAt  DateTime?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  // Relations
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  service  Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([businessId])
+  @@index([serviceId])
+  @@index([token])
+  @@index([type])
+  @@map("qr_codes")
+}
+
+// =============================================================================
+// MODEL 17: AuditLog
+// =============================================================================
+// Immutable record of important system actions.
+// businessId nullable — some actions are platform-level (ADMIN only).
+// NEVER store passwords, OTPs, secrets, or payment credentials here.
+// =============================================================================
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @db.Uuid
+  businessId String?  @db.Uuid
+  action     String
+  entity     String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  user     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  business Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([businessId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([businessId, createdAt])
+  @@map("audit_logs")
+}

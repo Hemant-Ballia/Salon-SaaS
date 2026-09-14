@@ -1,0 +1,49 @@
+# ============================
+# Environment
+# ============================
+node_modules/
+.env
+.env.local
+.env.production
+.env.staging
+.env.test
+
+# Allow example file
+!.env.example
+
+# ============================
+# Prisma
+# ============================
+# Do NOT ignore prisma/schema.prisma
+.prisma/
+
+# ============================
+# Logs
+# ============================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ============================
+# Testing
+# ============================
+coverage/
+.nyc_output/
+
+# ============================
+# Build / Misc
+# ============================
+dist/
+build/
+.DS_Store
+Thumbs.db
+
+# ============================
+# Editor
+# ============================
+.vscode/
+.idea/
+*.swp
+*.swo

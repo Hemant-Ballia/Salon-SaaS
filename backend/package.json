@@ -1,0 +1,68 @@
+{
+  "name": "salon-saas-backend",
+  "version": "1.0.0",
+  "description": "Multi-tenant SaaS backend for local service businesses (salons, barbers, car wash, etc.)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@supabase/supabase-js": "^2.45.4",
+    "axios": "^1.7.7",
+    "bcryptjs": "^2.4.3",
+    "bullmq": "^5.81.5",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "ioredis": "^5.11.1",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.15",
+    "qrcode": "^1.5.4",
+    "razorpay": "^2.9.3",
+    "socket.io": "^4.8.0",
+    "twilio": "^5.3.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7",
+    "prisma": "^5.22.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "saas",
+    "salon",
+    "barber",
+    "car-wash",
+    "appointment",
+    "multi-tenant",
+    "nodejs",
+    "express",
+    "prisma",
+    "supabase",
+    "postgresql"
+  ],
+  "author": "",
+  "license": "MIT",
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "prisma@5.22.0": true
+  }
+}
