@@ -332,7 +332,7 @@ const transitionQueueEntry = async (entryId, targetStatus, caller) => {
   const prisma = getDB();
   const entry = await prisma.queueEntry.findUnique({
     where: { id: entryId },
-    select: { id: true, status: true, tokenNumber: true, customerId: true, queue: { select: { id: true, businessId: true } } },
+    select: { id: true, status: true, tokenNumber: true, customerId: true, appointmentId: true, queue: { select: { id: true, businessId: true } } },
   });
   if (!entry) throw ApiError.notFound("Queue entry not found.", "QUEUE_ENTRY_NOT_FOUND");
 
@@ -368,6 +368,32 @@ const transitionQueueEntry = async (entryId, targetStatus, caller) => {
     data: updateData,
     select: QUEUE_ENTRY_SELECT,
   });
+
+  // If entry was linked to an appointment, complete the appointment as well
+  if (targetStatus === "COMPLETED" && entry.appointmentId) {
+    try {
+      await prisma.appointment.updateMany({
+        where: { id: entry.appointmentId, status: { in: ["CONFIRMED", "PENDING"] } },
+        data: { status: "COMPLETED", updatedAt: new Date() },
+      });
+      const appt = await prisma.appointment.findUnique({
+        where: { id: entry.appointmentId },
+        select: { id: true, status: true, businessId: true, customer: { select: { user: { select: { id: true } } } } },
+      });
+      if (appt) {
+        emitToBusiness(appt.businessId, "appointment:updated", { appointment: appt, action: "completed" });
+        if (appt.customer?.user?.id) emitToCustomer(appt.customer.user.id, "appointment:updated", { appointment: appt, action: "completed" });
+        try {
+          const { evaluateAppointmentCommission } = await import("../compensation/compensation.service.js");
+          await evaluateAppointmentCommission(entry.appointmentId);
+        } catch (compErr) {
+          logger.error(`[Queue] Error evaluating compensation on linked appointment ${entry.appointmentId}: ${compErr.message}`);
+        }
+      }
+    } catch (err) {
+      logger.error(`[Queue] Failed to update linked appointment ${entry.appointmentId}:`, err.message);
+    }
+  }
 
   // Resolve customer userId for socket notification
   const customer = await prisma.customer.findUnique({

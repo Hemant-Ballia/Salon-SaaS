@@ -19,6 +19,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import QRCode from "qrcode";
 
 const prisma = new PrismaClient();
 
@@ -426,8 +427,424 @@ const seed = async () => {
     ],
   });
 
-  // ── 10. Audit Logs ────────────────────────────────────────────────────────
+  // ── 10. QR Code for Salon ───────────────────────────────────────────────
+  console.log("  Creating QR code for Salon...");
+  const salonTargetUrl = "http://localhost:3000/book/BLUSH-0427";
+  const salonQrDataUrl = await QRCode.toDataURL(salonTargetUrl, {
+    width: 512,
+    margin: 2,
+    errorCorrectionLevel: "H",
+    color: { dark: "#0f172a", light: "#ffffff" },
+  });
+  await prisma.qrCode.create({
+    data: {
+      businessId: business.id,
+      type: "BUSINESS",
+      token: "BLUSH-0427",
+      targetUrl: salonTargetUrl,
+      qrImageUrl: salonQrDataUrl,
+      isActive: true,
+      scanCount: 142,
+    },
+  });
 
+  // ── 11. Additional Salon Appointments & Payments (Past 7 Days + Today) ──
+  console.log("  Creating rich Salon appointments and payments...");
+  const svcHairSpa = await prisma.service.create({
+    data: { businessId: business.id, name: "Hair Spa", durationMinutes: 60, price: 1200.0, category: "Haircare", isActive: true },
+  });
+  const svcFacial = await prisma.service.create({
+    data: { businessId: business.id, name: "Facial", durationMinutes: 45, price: 800.0, category: "Skincare", isActive: true },
+  });
+  const svcBridal = await prisma.service.create({
+    data: { businessId: business.id, name: "Bridal Makeup", durationMinutes: 120, price: 5000.0, category: "Makeup", isActive: true },
+  });
+  const svcThreading = await prisma.service.create({
+    data: { businessId: business.id, name: "Threading", durationMinutes: 15, price: 100.0, category: "Eyebrows", isActive: true },
+  });
+
+  // Create extra customers
+  const extraCustData = [
+    { name: "Anjali Verma", phone: "+919876543210", email: "anjali.v@customer.dev" },
+    { name: "Riya Patel", phone: "+918765432109", email: "riya.p@customer.dev" },
+    { name: "Sneha Kapoor", phone: "+919123456789", email: "sneha.k@customer.dev" },
+    { name: "Meera Joshi", phone: "+919988766554", email: "meera.j@customer.dev" },
+    { name: "Tanya Sharma", phone: "+918877766550", email: "tanya.s@customer.dev" },
+  ];
+
+  const createdCustomers = [];
+  for (const c of extraCustData) {
+    const u = await prisma.user.create({
+      data: {
+        name: c.name,
+        email: c.email,
+        phone: c.phone,
+        passwordHash,
+        role: "CUSTOMER",
+        isActive: true,
+      },
+    });
+    const cp = await prisma.customer.create({ data: { userId: u.id } });
+    createdCustomers.push({ user: u, customer: cp });
+  }
+
+  // Create appointments for today matching screenshot times
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+
+  const salonTodayAppts = [
+    { custIdx: 0, svc: svcBridal, staff: staff1, time: "10:30", status: "CONFIRMED", amt: 5000 },
+    { custIdx: 1, svc: svcHairSpa, staff: staff2, time: "11:15", status: "CONFIRMED", amt: 1200 },
+    { custIdx: 2, svc: svcFacial, staff: staff1, time: "12:00", status: "CONFIRMED", amt: 800 },
+    { custIdx: 3, svc: svcThreading, staff: staff2, time: "13:30", status: "PENDING", amt: 100 },
+    { custIdx: 4, svc: serviceHaircut, staff: staff1, time: "15:00", status: "CONFIRMED", amt: 250 },
+  ];
+
+  for (const a of salonTodayAppts) {
+    const apt = await prisma.appointment.create({
+      data: {
+        businessId: business.id,
+        customerId: createdCustomers[a.custIdx].customer.id,
+        staffId: a.staff.id,
+        appointmentDate: todayDate,
+        startTime: a.time,
+        endTime: "16:00",
+        status: a.status,
+        totalAmount: a.amt,
+      },
+    });
+    if (a.svc) {
+      await prisma.appointmentService.create({
+        data: {
+          appointmentId: apt.id,
+          serviceId: a.svc.id,
+          quantity: 1,
+          priceAtBooking: a.amt,
+        },
+      });
+    }
+    // Create payment for confirmed/completed
+    if (a.status === "CONFIRMED" || a.status === "COMPLETED") {
+      await prisma.payment.create({
+        data: {
+          businessId: business.id,
+          customerId: createdCustomers[a.custIdx].customer.id,
+          appointmentId: apt.id,
+          amount: a.amt,
+          status: "PAID",
+          method: "UPI",
+          currency: "INR",
+        },
+      });
+    }
+  }
+
+  // Historical appointments for the last 6 days for chart
+  for (let i = 1; i <= 6; i++) {
+    const d = new Date(todayDate);
+    d.setDate(d.getDate() - i);
+    const count = 2;
+    for (let j = 0; j < count; j++) {
+      const apt = await prisma.appointment.create({
+        data: {
+          businessId: business.id,
+          customerId: createdCustomers[j % createdCustomers.length].customer.id,
+          staffId: j % 2 === 0 ? staff1.id : staff2.id,
+          appointmentDate: d,
+          startTime: "10:00",
+          endTime: "11:00",
+          status: j % 5 === 0 ? "CANCELLED" : "COMPLETED",
+          totalAmount: 1200 + (j * 150),
+        },
+      });
+      await prisma.payment.create({
+        data: {
+          businessId: business.id,
+          customerId: createdCustomers[j % createdCustomers.length].customer.id,
+          appointmentId: apt.id,
+          amount: 1200 + (j * 150),
+          status: "PAID",
+          method: "RAZORPAY",
+          createdAt: d,
+          currency: "INR",
+        },
+      });
+    }
+  }
+
+  // ── 12. CAR WASH Business + Owner + Services + Staff + Appointments ─────
+  console.log("  Creating CAR WASH business and owner...");
+  const carWashUser = await prisma.user.create({
+    data: {
+      name: "Rahul Sharma",
+      email: "owner@royalcarwash.dev",
+      phone: "+910000000088",
+      passwordHash,
+      role: "BUSINESS",
+      isActive: true,
+      isEmailVerified: true,
+      isPhoneVerified: true,
+    },
+  });
+
+  await prisma.notificationPreference.create({
+    data: { userId: carWashUser.id },
+  });
+
+  const carWashBiz = await prisma.business.create({
+    data: {
+      ownerId: carWashUser.id,
+      name: "Royal Car Wash",
+      slug: "royal-car-wash",
+      businessType: "CAR_WASH",
+      description: "Delivering the best car wash experience with modern technology and expert care.",
+      email: "contact@royalcarwash.dev",
+      phone: "+910000000077",
+      address: "Sector 18, Commercial Auto Hub",
+      city: "Gurugram",
+      state: "Haryana",
+      country: "IN",
+      pincode: "122001",
+      status: "ACTIVE",
+      isActive: true,
+    },
+  });
+
+  // Car Wash subscription
+  await prisma.subscription.create({
+    data: {
+      businessId: carWashBiz.id,
+      plan: "PREMIUM",
+      status: "ACTIVE",
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+      renewalDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+      provider: "razorpay",
+    },
+  });
+
+  // Car Wash QR
+  const carWashTargetUrl = "http://localhost:3000/book/BWK-0427";
+  const carWashQrDataUrl = await QRCode.toDataURL(carWashTargetUrl, {
+    width: 512,
+    margin: 2,
+    errorCorrectionLevel: "H",
+    color: { dark: "#0f172a", light: "#ffffff" },
+  });
+  await prisma.qrCode.create({
+    data: {
+      businessId: carWashBiz.id,
+      type: "BUSINESS",
+      token: "BWK-0427",
+      targetUrl: carWashTargetUrl,
+      qrImageUrl: carWashQrDataUrl,
+      isActive: true,
+      scanCount: 346,
+    },
+  });
+
+  // Car Wash Services
+  const svcCwFull = await prisma.service.create({
+    data: { businessId: carWashBiz.id, name: "Full Wash", durationMinutes: 45, price: 650.0, category: "Wash", isActive: true },
+  });
+  const svcCwInterior = await prisma.service.create({
+    data: { businessId: carWashBiz.id, name: "Interior Cleaning", durationMinutes: 30, price: 450.0, category: "Cleaning", isActive: true },
+  });
+  const svcCwExterior = await prisma.service.create({
+    data: { businessId: carWashBiz.id, name: "Exterior Wash", durationMinutes: 20, price: 350.0, category: "Wash", isActive: true },
+  });
+  const svcCwPremium = await prisma.service.create({
+    data: { businessId: carWashBiz.id, name: "Premium Wash", durationMinutes: 60, price: 950.0, category: "Detailing", isActive: true },
+  });
+  await prisma.service.create({
+    data: { businessId: carWashBiz.id, name: "Others", durationMinutes: 15, price: 200.0, category: "Addons", isActive: true },
+  });
+
+  // Car Wash Staff
+  const cwStaffUsers = [
+    { name: "Rohit Singh", email: "rohit@royalcarwash.dev", phone: "+910000000061" },
+    { name: "Vikram Yadav", email: "vikram@royalcarwash.dev", phone: "+910000000062" },
+    { name: "Aman Khan", email: "aman@royalcarwash.dev", phone: "+910000000063" },
+  ];
+
+  const cwStaffRecords = [];
+  for (const s of cwStaffUsers) {
+    const su = await prisma.user.create({
+      data: {
+        name: s.name,
+        email: s.email,
+        phone: s.phone,
+        passwordHash,
+        role: "STAFF",
+        isActive: true,
+      },
+    });
+    const sr = await prisma.staff.create({
+      data: {
+        userId: su.id,
+        businessId: carWashBiz.id,
+        displayName: s.name,
+        designation: "Wash Specialist",
+        status: "ACTIVE",
+      },
+    });
+    cwStaffRecords.push(sr);
+  }
+
+  // Car Wash Queue
+  const cwQueue = await prisma.queue.create({
+    data: {
+      businessId: carWashBiz.id,
+      name: "Bay 1 Express Queue",
+      isActive: true,
+      maxCapacity: 15,
+    },
+  });
+
+  await prisma.queueEntry.create({
+    data: {
+      queueId: cwQueue.id,
+      customerId: createdCustomers[0].customer.id,
+      tokenNumber: 1,
+      status: "SERVING",
+      estimatedWaitMinutes: 5,
+    },
+  });
+
+  await prisma.queueEntry.create({
+    data: {
+      queueId: cwQueue.id,
+      customerId: createdCustomers[1].customer.id,
+      tokenNumber: 2,
+      status: "WAITING",
+      estimatedWaitMinutes: 15,
+    },
+  });
+
+  await prisma.queueEntry.create({
+    data: {
+      queueId: cwQueue.id,
+      customerId: createdCustomers[2].customer.id,
+      tokenNumber: 3,
+      status: "WAITING",
+      estimatedWaitMinutes: 30,
+    },
+  });
+
+  // Car Wash Today's Appointments matching screenshot
+  const cwTodayAppts = [
+    { custIdx: 0, svc: svcCwFull, staff: cwStaffRecords[0], time: "10:30 AM", status: "COMPLETED", amt: 650 },
+    { custIdx: 1, svc: svcCwInterior, staff: cwStaffRecords[1], time: "11:15 AM", status: "CONFIRMED", amt: 450 },
+    { custIdx: 2, svc: svcCwExterior, staff: cwStaffRecords[2], time: "12:00 PM", status: "CONFIRMED", amt: 350 },
+    { custIdx: 3, svc: svcCwPremium, staff: cwStaffRecords[0], time: "01:30 PM", status: "PENDING", amt: 950 },
+    { custIdx: 4, svc: svcCwInterior, staff: cwStaffRecords[1], time: "03:00 PM", status: "CONFIRMED", amt: 450 },
+  ];
+
+  for (const a of cwTodayAppts) {
+    const apt = await prisma.appointment.create({
+      data: {
+        businessId: carWashBiz.id,
+        customerId: createdCustomers[a.custIdx].customer.id,
+        staffId: a.staff.id,
+        appointmentDate: todayDate,
+        startTime: a.time,
+        endTime: "04:00 PM",
+        status: a.status,
+        totalAmount: a.amt,
+      },
+    });
+    if (a.svc) {
+      await prisma.appointmentService.create({
+        data: {
+          appointmentId: apt.id,
+          serviceId: a.svc.id,
+          quantity: 1,
+          priceAtBooking: a.amt,
+        },
+      });
+    }
+    if (a.status === "COMPLETED" || a.status === "CONFIRMED") {
+      await prisma.payment.create({
+        data: {
+          businessId: carWashBiz.id,
+          customerId: createdCustomers[a.custIdx].customer.id,
+          appointmentId: apt.id,
+          amount: a.amt,
+          status: "PAID",
+          method: "RAZORPAY",
+          currency: "INR",
+        },
+      });
+    }
+  }
+
+  // Car Wash Historical data (past 6 days) for Booking Overview chart
+  for (let i = 1; i <= 6; i++) {
+    const d = new Date(todayDate);
+    d.setDate(d.getDate() - i);
+    const count = 2;
+    for (let j = 0; j < count; j++) {
+      const apt = await prisma.appointment.create({
+        data: {
+          businessId: carWashBiz.id,
+          customerId: createdCustomers[j % createdCustomers.length].customer.id,
+          staffId: cwStaffRecords[j % cwStaffRecords.length].id,
+          appointmentDate: d,
+          startTime: "09:30 AM",
+          endTime: "10:30 AM",
+          status: "COMPLETED",
+          totalAmount: 550,
+        },
+      });
+      await prisma.payment.create({
+        data: {
+          businessId: carWashBiz.id,
+          customerId: createdCustomers[j % createdCustomers.length].customer.id,
+          appointmentId: apt.id,
+          amount: 550,
+          status: "PAID",
+          method: "RAZORPAY",
+          createdAt: d,
+          currency: "INR",
+        },
+      });
+    }
+  }
+
+  // Car Wash Notifications
+  await prisma.notification.createMany({
+    data: [
+      {
+        userId: carWashUser.id,
+        businessId: carWashBiz.id,
+        type: "APPOINTMENT_CREATED",
+        channel: "IN_APP",
+        title: "New booking received",
+        message: "Amit Kumar booked Full Wash for 10:30 AM",
+        isRead: false,
+      },
+      {
+        userId: carWashUser.id,
+        businessId: carWashBiz.id,
+        type: "PAYMENT_SUCCESS",
+        channel: "IN_APP",
+        title: "Payment received",
+        message: "₹550 via Razorpay from Amit Kumar",
+        isRead: false,
+      },
+      {
+        userId: carWashUser.id,
+        businessId: carWashBiz.id,
+        type: "QUEUE_UPDATE",
+        channel: "IN_APP",
+        title: "Staff checked in",
+        message: "Rohit Singh started service",
+        isRead: false,
+      },
+    ],
+  });
+
+  // ── 13. Audit Logs ────────────────────────────────────────────────────────
   console.log("  Creating audit logs...");
   await prisma.auditLog.createMany({
     data: [
@@ -440,28 +857,26 @@ const seed = async () => {
         ipAddress: "127.0.0.1",
       },
       {
-        userId: customerUser.id,
-        businessId: business.id,
-        action: "APPOINTMENT_CREATED",
-        entity: "Appointment",
-        entityId: appointment.id,
-        metadata: { totalAmount: 1750, services: 2 },
+        userId: adminUser.id,
+        action: "BUSINESS_APPROVED",
+        entity: "Business",
+        entityId: carWashBiz.id,
+        metadata: { reason: "Seed — development approval" },
         ipAddress: "127.0.0.1",
       },
     ],
   });
 
   // ── Summary ───────────────────────────────────────────────────────────────
-
   console.log("\n=== Seed complete ===\n");
   console.log("Development credentials (Password: Password@123):");
-  console.log("  ADMIN    : admin@salonsaas.dev");
-  console.log("  BUSINESS : owner@sharmassalon.dev");
-  console.log("  STAFF    : priya@sharmassalon.dev");
-  console.log("  STAFF    : amit@sharmassalon.dev");
-  console.log("  CUSTOMER : anjali@customer.dev");
-  console.log("\nWARNING: These are development-only credentials.");
-  console.log("         Never use in production.");
+  console.log("  ADMIN         : admin@salonsaas.dev");
+  console.log("  SALON OWNER   : owner@sharmassalon.dev (Sharma's Salon - SALON)");
+  console.log("  CAR WASH OWNER: owner@royalcarwash.dev (Royal Car Wash - CAR_WASH)");
+  console.log("  STAFF         : priya@sharmassalon.dev");
+  console.log("  STAFF         : rohit@royalcarwash.dev");
+  console.log("  CUSTOMER      : anjali@customer.dev");
+  console.log("\nWARNING: These are development-only credentials. Never use in production.");
 };
 
 // ---------------------------------------------------------------------------
@@ -476,3 +891,4 @@ seed()
   .finally(async () => {
     await prisma.$disconnect();
   });
+

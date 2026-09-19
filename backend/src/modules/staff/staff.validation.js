@@ -12,14 +12,21 @@ const timeField = z.string()
   .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Time must be in HH:MM format (e.g. 09:00)");
 
 export const createStaffSchema = z.object({
-  userId: z.string().uuid("userId must be a valid UUID"),
+  userId: z.string().uuid("userId must be a valid UUID").optional(),
+  email: z.string().email("Valid email address is required").toLowerCase().optional(),
+  password: z.string().min(6, "Password must be at least 6 characters").optional(),
+  phone: z.string().max(20).optional().nullable(),
   displayName: z.string().min(2).max(100).trim(),
   designation: z.string().max(100).trim().optional().nullable(),
   bio: z.string().max(1000).trim().optional().nullable(),
   profileImageUrl: z.string().url().optional().nullable(),
   joiningDate: z.coerce.date().optional().nullable(),
-  // businessId is NEVER accepted from body — resolved from JWT+DB in service
-});
+  businessId: z.string().uuid().optional().nullable(),
+  // businessId is NEVER accepted from body for business owners — resolved from JWT+DB in service
+}).refine(
+  (data) => Boolean(data.userId || data.email),
+  { message: "Either userId or email must be provided to create a staff member.", path: ["email"] }
+);
 
 export const updateStaffSchema = z.object({
   displayName: z.string().min(2).max(100).trim().optional(),

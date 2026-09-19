@@ -196,6 +196,17 @@ export const verifyPayment = async (data, caller) => {
   });
 
   logger.info(`[Payment] Verified & PAID: ${payment.id}`);
+
+  // Evaluate commission if appointment completed and paid
+  if (payment.appointmentId) {
+    try {
+      const { evaluateAppointmentCommission } = await import("../compensation/compensation.service.js");
+      await evaluateAppointmentCommission(payment.appointmentId);
+    } catch (err) {
+      logger.error(`[Payment] Error evaluating commission on payment verify: ${err.message}`);
+    }
+  }
+
   return { payment: serialize(updated) };
 };
 
@@ -249,6 +260,17 @@ export const handleWebhook = async (rawBody, signature) => {
       },
     });
     logger.info(`[Payment] Webhook PAID: ${payment.id}`);
+
+    // Evaluate commission if appointment completed and paid
+    if (payment.appointmentId) {
+      try {
+        const { evaluateAppointmentCommission } = await import("../compensation/compensation.service.js");
+        await evaluateAppointmentCommission(payment.appointmentId);
+      } catch (err) {
+        logger.error(`[Payment] Error evaluating commission on webhook: ${err.message}`);
+      }
+    }
+
     return { received: true, action: "marked_paid" };
   }
 
@@ -283,6 +305,15 @@ export const handleWebhook = async (rawBody, signature) => {
         },
       });
       logger.info(`[Payment] Webhook REFUND: ${payment.id} amount=₹${refundedAmt}`);
+
+      // Handle compensation reversal/adjustment on refund
+      try {
+        const { handlePaymentRefund } = await import("../compensation/compensation.service.js");
+        await handlePaymentRefund(payment.id);
+      } catch (err) {
+        logger.error(`[Payment] Error adjusting compensation on refund: ${err.message}`);
+      }
+
       return { received: true, action: "refund_processed" };
     }
   }

@@ -41,6 +41,11 @@ export const updateStaffScheduleController = asyncHandler(async (req, res) => {
   return sendSuccess(res, "Staff schedule updated.", result);
 });
 
+export const getStaffScheduleController = asyncHandler(async (req, res) => {
+  const result = await service.getStaffSchedule(req.params.id, req.user);
+  return sendSuccess(res, "Staff schedule fetched.", result);
+});
+
 export const getStaffAppointmentsController = asyncHandler(async (req, res) => {
   const { appointments, pagination } = await service.getStaffAppointments(req.params.id, req.query, req.user);
   return sendPaginated(res, "Staff appointments fetched.", appointments, pagination);

@@ -4,7 +4,7 @@
   "description": "Multi-tenant SaaS backend for local service businesses (salons, barbers, car wash, etc.)",
   "type": "module",
   "main": "src/server.js",
- "scripts": {
+  "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "build": "prisma generate",
@@ -14,7 +14,6 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "prisma db seed"
   },
-  
   "prisma": {
     "seed": "node prisma/seed.js"
   },
@@ -42,7 +41,9 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "jsqr": "^1.4.0",
     "nodemon": "^3.1.7",
+    "pngjs": "^7.0.0",
     "prisma": "^5.22.0"
   },
   "engines": {

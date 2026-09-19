@@ -14,6 +14,7 @@
 import { getDB } from "../../config/db.js";
 import { paginate } from "../../utils/pagination.js";
 import { withTransaction } from "../../utils/transaction.js";
+import { hashPassword } from "../../utils/password.js";
 import ApiError from "../../utils/apiError.js";
 import logger from "../../utils/logger.js";
 
@@ -66,8 +67,70 @@ export const createStaff = async (data, caller) => {
   // businessId resolved from DB — ignore any businessId in data
   const businessId = await resolveCallerBusinessId(caller, data.businessId || null);
 
+  let userId = data.userId;
+  const { email, password, phone, businessId: _ignored, ...profileData } = data;
+
+  if (!userId && email) {
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, role: true, isActive: true, deletedAt: true },
+    });
+
+    if (existingUser) {
+      if (existingUser.deletedAt || !existingUser.isActive) {
+        throw ApiError.badRequest("A deactivated user with this email already exists.", "USER_DEACTIVATED");
+      }
+      if (existingUser.role !== "STAFF") {
+        throw ApiError.badRequest("A user with this email already exists but does not have the STAFF role.", "INVALID_ROLE");
+      }
+      userId = existingUser.id;
+    } else {
+      // Create new User with role STAFF and Staff record atomically
+      const defaultPassword = password || "Password@123";
+      const passwordHash = await hashPassword(defaultPassword);
+
+      const DEFAULT_SCHEDULES = [
+        "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"
+      ].map((dayOfWeek) => ({
+        dayOfWeek,
+        startTime: "09:00",
+        endTime: "20:00",
+        isAvailable: true,
+      }));
+
+      const createdStaff = await withTransaction(async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            name: profileData.displayName,
+            email,
+            phone: phone || null,
+            passwordHash,
+            role: "STAFF",
+            isActive: true,
+          },
+          select: { id: true },
+        });
+
+        return tx.staff.create({
+          data: {
+            userId: newUser.id,
+            businessId,
+            ...profileData,
+            schedules: { create: DEFAULT_SCHEDULES },
+          },
+          select: STAFF_SELECT,
+        });
+      });
+
+      logger.info(`[Staff] Provisioned new User and Staff: ${createdStaff.id} in business=${businessId}`);
+      return { staff: createdStaff };
+    }
+  }
+
+  // If userId was provided or resolved from existing user
   const targetUser = await prisma.user.findUnique({
-    where: { id: data.userId },
+    where: { id: userId },
     select: { id: true, role: true, isActive: true, deletedAt: true },
   });
   if (!targetUser || targetUser.deletedAt || !targetUser.isActive) {
@@ -77,12 +140,25 @@ export const createStaff = async (data, caller) => {
     throw ApiError.badRequest("User must have the STAFF role to be added as staff.", "INVALID_ROLE");
   }
 
-  const dup = await prisma.staff.findFirst({ where: { userId: data.userId, businessId, deletedAt: null }, select: { id: true } });
+  const dup = await prisma.staff.findFirst({ where: { userId, businessId, deletedAt: null }, select: { id: true } });
   if (dup) throw ApiError.conflict("This user is already a staff member of this business.", "STAFF_EXISTS");
 
-  const { userId, businessId: _ignored, ...profileData } = data;
+  const DEFAULT_SCHEDULES = [
+    "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"
+  ].map((dayOfWeek) => ({
+    dayOfWeek,
+    startTime: "09:00",
+    endTime: "20:00",
+    isAvailable: true,
+  }));
+
   const staff = await prisma.staff.create({
-    data: { userId, businessId, ...profileData },
+    data: {
+      userId,
+      businessId,
+      ...profileData,
+      schedules: { create: DEFAULT_SCHEDULES },
+    },
     select: STAFF_SELECT,
   });
 
@@ -199,6 +275,22 @@ export const updateStaffSchedule = async (staffId, { schedules }, caller) => {
   return { staff: updated };
 };
 
+// ── Get Schedule ─────────────────────────────────────────────────────────────
+
+export const getStaffSchedule = async (staffId, caller) => {
+  const prisma = getDB();
+  const s = await prisma.staff.findFirst({ where: { id: staffId, deletedAt: null }, select: { id: true, businessId: true } });
+  if (!s) throw ApiError.notFound("Staff member not found.", "STAFF_NOT_FOUND");
+  if (caller.role !== "ADMIN") await resolveCallerBusinessId(caller, s.businessId);
+
+  const schedules = await prisma.staffSchedule.findMany({
+    where: { staffId },
+    select: { id: true, dayOfWeek: true, startTime: true, endTime: true, isAvailable: true },
+  });
+
+  return { schedules };
+};
+
 // ── Staff Appointments ────────────────────────────────────────────────────────
 
 export const getStaffAppointments = async (staffId, query, caller) => {
@@ -210,6 +302,21 @@ export const getStaffAppointments = async (staffId, query, caller) => {
   const { skip, take, meta } = paginate(query, ["appointmentDate", "createdAt", "status"]);
   const where = { staffId, deletedAt: null };
   if (query.status) where.status = query.status;
+  if (query.date) {
+    const d = new Date(query.date);
+    d.setHours(0, 0, 0, 0);
+    where.appointmentDate = d;
+  }
+  if (query.search) {
+    where.customer = {
+      user: {
+        OR: [
+          { name: { contains: query.search, mode: "insensitive" } },
+          { phone: { contains: query.search, mode: "insensitive" } },
+        ],
+      },
+    };
+  }
 
   const [appointments, total] = await prisma.$transaction([
     prisma.appointment.findMany({
@@ -217,9 +324,9 @@ export const getStaffAppointments = async (staffId, query, caller) => {
       select: {
         id: true, appointmentDate: true, startTime: true, endTime: true,
         status: true, totalAmount: true, notes: true, createdAt: true,
-        customer: { select: { user: { select: { name: true, phone: true } } } },
+        customer: { select: { id: true, user: { select: { id: true, name: true, phone: true, email: true } } } },
         appointmentServices: {
-          select: { quantity: true, priceAtBooking: true, service: { select: { name: true } } },
+          select: { quantity: true, priceAtBooking: true, service: { select: { id: true, name: true } } },
         },
       },
     }),
@@ -242,11 +349,24 @@ export const getStaffQueue = async (staffId, caller) => {
     orderBy: { tokenNumber: "asc" },
     select: {
       id: true, tokenNumber: true, status: true, estimatedWaitMinutes: true, joinedAt: true,
-      customer: { select: { user: { select: { name: true, phone: true } } } },
+      calledAt: true, servedAt: true, completedAt: true,
+      customer: { select: { id: true, user: { select: { name: true, phone: true } } } },
+      appointment: {
+        select: {
+          id: true, appointmentDate: true, startTime: true,
+          appointmentServices: { select: { service: { select: { name: true } } } },
+        },
+      },
     },
   });
 
-  return { queue: entries };
+  const formatted = entries.map((e) => ({
+    ...e,
+    customerName: e.customer?.user?.name || "Walk-in Guest",
+    serviceName: e.appointment?.appointmentServices?.[0]?.service?.name || "General Service",
+  }));
+
+  return { queue: formatted };
 };
 
 // ── Staff Performance ─────────────────────────────────────────────────────────

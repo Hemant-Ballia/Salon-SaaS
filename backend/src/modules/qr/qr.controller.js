@@ -33,3 +33,8 @@ export const scanQrCode = asyncHandler(async (req, res) => {
   const result = await service.scanQrCode(req.params.id);
   return sendSuccess(res, "QR scanned.", result);
 });
+
+export const resolveQrToken = asyncHandler(async (req, res) => {
+  const result = await service.resolveQrToken(req.params.token);
+  return sendSuccess(res, "QR resolved successfully.", result);
+});

@@ -8,19 +8,22 @@ import { getDB } from "../../config/db.js";
 import { paginate } from "../../utils/pagination.js";
 import ApiError from "../../utils/apiError.js";
 import { auditLog } from "../../utils/audit.js";
+import * as service from "./admin.service.js";
 
 // ── Dashboard Metrics ─────────────────────────────────────────────────────────
 
 export const getDashboard = asyncHandler(async (req, res) => {
-  const prisma = getDB();
-  const [users, businesses, appointments, revenue] = await Promise.all([
-    prisma.user.count(),
-    prisma.business.count(),
-    prisma.appointment.count(),
-    prisma.payment.aggregate({ _sum: { amount: true }, where: { status: "PAID" } }),
-  ]);
+  const period = req.query.period || "7D";
+  const dashboard = await service.getAdminDashboardData(period);
+
   return sendSuccess(res, "Admin dashboard fetched.", {
-    metrics: { users, businesses, appointments, revenue: Number(revenue._sum.amount || 0) },
+    metrics: {
+      users: dashboard.overview.totalUsers,
+      businesses: dashboard.overview.totalBusinesses,
+      appointments: dashboard.overview.totalAppointments,
+      revenue: dashboard.overview.totalRevenue,
+    },
+    dashboard,
   });
 });
 
@@ -29,9 +32,38 @@ export const getDashboard = asyncHandler(async (req, res) => {
 export const listUsers = asyncHandler(async (req, res) => {
   const prisma = getDB();
   const { skip, take, orderBy, meta } = paginate(req.query, ["createdAt", "role", "isActive"]);
+
+  // Exclude master ADMIN accounts from operational User Management list
+  const where = {
+    deletedAt: null,
+    role: { not: "ADMIN" },
+  };
+
+  if (req.query.role && req.query.role !== "ALL" && req.query.role !== "ADMIN") {
+    where.role = req.query.role;
+  }
+
+  if (req.query.isActive !== undefined && req.query.isActive !== "ALL") {
+    where.isActive = req.query.isActive === "true" || req.query.isActive === true;
+  }
+
+  if (req.query.search) {
+    where.OR = [
+      { name: { contains: req.query.search, mode: "insensitive" } },
+      { email: { contains: req.query.search, mode: "insensitive" } },
+      { phone: { contains: req.query.search, mode: "insensitive" } },
+    ];
+  }
+
   const [data, total] = await prisma.$transaction([
-    prisma.user.findMany({ skip, take, orderBy, select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true } }),
-    prisma.user.count(),
+    prisma.user.findMany({
+      where,
+      skip,
+      take,
+      orderBy,
+      select: { id: true, name: true, email: true, phone: true, role: true, isActive: true, createdAt: true },
+    }),
+    prisma.user.count({ where }),
   ]);
   return sendPaginated(res, "Users fetched.", data, meta(total));
 });
@@ -40,7 +72,7 @@ export const getUser = asyncHandler(async (req, res) => {
   const prisma = getDB();
   const user = await prisma.user.findUnique({
     where: { id: req.params.id },
-    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+    select: { id: true, name: true, email: true, phone: true, role: true, isActive: true, createdAt: true },
   });
   if (!user) throw ApiError.notFound("User not found.");
   return sendSuccess(res, "User fetched.", { user });
@@ -49,6 +81,13 @@ export const getUser = asyncHandler(async (req, res) => {
 export const updateUserStatus = asyncHandler(async (req, res) => {
   const prisma = getDB();
   const { isActive } = req.body;
+
+  const targetUser = await prisma.user.findUnique({ where: { id: req.params.id }, select: { id: true, role: true } });
+  if (!targetUser) throw ApiError.notFound("User not found.");
+  if (targetUser.role === "ADMIN") {
+    throw ApiError.forbidden("Master Administrator accounts cannot be deactivated from user management.", "FORBIDDEN");
+  }
+
   const user = await prisma.user.update({
     where: { id: req.params.id },
     data: { isActive },
@@ -64,9 +103,13 @@ export const updateUserStatus = asyncHandler(async (req, res) => {
 export const listBusinesses = asyncHandler(async (req, res) => {
   const prisma = getDB();
   const { skip, take, orderBy, meta } = paginate(req.query, ["createdAt", "status"]);
+  const where = { deletedAt: null };
+  if (req.query.status && req.query.status !== "ALL") {
+    where.status = req.query.status;
+  }
   const [data, total] = await prisma.$transaction([
-    prisma.business.findMany({ skip, take, orderBy, include: { owner: { select: { email: true } } } }),
-    prisma.business.count(),
+    prisma.business.findMany({ where, skip, take, orderBy, include: { owner: { select: { email: true, name: true } } } }),
+    prisma.business.count({ where }),
   ]);
   return sendPaginated(res, "Businesses fetched.", data, meta(total));
 });

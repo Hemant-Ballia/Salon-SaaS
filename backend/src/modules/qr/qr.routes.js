@@ -14,7 +14,8 @@ import { generateBusinessQrSchema, generateServiceQrSchema } from "./qr.validati
 
 const router = Router();
 
-// Public route for scanning
+// Public route for scanning and resolving by token
+router.get("/resolve/:token", generalLimiter, ctrl.resolveQrToken);
 router.get("/:id/scan", generalLimiter, ctrl.scanQrCode);
 
 // Authenticated routes

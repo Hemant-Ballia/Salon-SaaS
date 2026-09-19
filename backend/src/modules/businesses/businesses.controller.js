@@ -7,8 +7,8 @@ import { sendSuccess, sendCreated, sendNoContent, sendPaginated } from "../../ut
 import * as service from "./businesses.service.js";
 
 export const createBusinessController = asyncHandler(async (req, res) => {
-  const result = await service.createBusiness(req.body, req.user.userId);
-  return sendCreated(res, "Business created successfully. Pending admin approval.", result);
+  const result = await service.createBusiness(req.body, req.user);
+  return sendCreated(res, "Business created successfully.", result);
 });
 
 export const listBusinessesController = asyncHandler(async (req, res) => {
@@ -37,6 +37,18 @@ export const updateBusinessStatusController = asyncHandler(async (req, res) => {
 });
 
 export const getBusinessDashboardController = asyncHandler(async (req, res) => {
-  const result = await service.getBusinessDashboard(req.params.id, req.user);
+  const period = req.query.period || "7D";
+  const result = await service.getBusinessDashboard(req.params.id, req.user, period);
   return sendSuccess(res, "Dashboard data fetched.", result);
 });
+
+export const getBusinessQrController = asyncHandler(async (req, res) => {
+  const result = await service.getBusinessQr(req.params.id, req.user);
+  return sendSuccess(res, "Business QR fetched successfully.", result);
+});
+
+export const regenerateBusinessQrController = asyncHandler(async (req, res) => {
+  const result = await service.regenerateBusinessQr(req.params.id, req.user);
+  return sendSuccess(res, "Business QR regenerated successfully.", result);
+});
+

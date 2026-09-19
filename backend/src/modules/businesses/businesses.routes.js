@@ -65,4 +65,23 @@ router.get(
   ctrl.getBusinessDashboardController
 );
 
+// ── QR Code Management ────────────────────────────────────────────────────────
+
+router.get(
+  "/:id/qr",
+  requireRole("ADMIN", "BUSINESS", "STAFF"),
+  ctrl.getBusinessQrController
+);
+
+router.post(
+  "/:id/qr/regenerate",
+  requireRole("ADMIN", "BUSINESS"),
+  ctrl.regenerateBusinessQrController
+);
+
+// ── Compensation & Staff Pricing Sub-router ──────────────────────────────────
+import businessCompensationRouter from "../compensation/compensation.routes.js";
+router.use("/:businessId", businessCompensationRouter);
+
 export default router;
+

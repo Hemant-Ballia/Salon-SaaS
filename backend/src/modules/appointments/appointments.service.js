@@ -170,9 +170,33 @@ const validateBooking = async (prisma, { businessId, staffId, appointmentDate, s
     throw ApiError.badRequest(`Services not found or inactive: ${missing.join(", ")}`, "INVALID_SERVICES");
   }
 
-  // 3. Compute total duration and total amount server-side
-  const totalDuration = services.reduce((sum, s) => sum + s.durationMinutes, 0);
-  const totalAmount = services.reduce((sum, s) => sum + Number(s.price), 0);
+  // 3. Resolve staff-specific service prices if staffId is provided (with fallback to base service price)
+  const staffOverridesMap = new Map();
+  if (staffId) {
+    const overrides = await prisma.staffServicePrice.findMany({
+      where: {
+        businessId,
+        staffId,
+        serviceId: { in: serviceIds },
+        isActive: true,
+      },
+    });
+    for (const ov of overrides) {
+      staffOverridesMap.set(ov.serviceId, ov.price);
+    }
+  }
+
+  const resolvedServices = services.map((s) => {
+    const overridePrice = staffOverridesMap.get(s.id);
+    const effectivePrice = overridePrice !== undefined ? overridePrice : s.price;
+    return {
+      ...s,
+      effectivePrice,
+    };
+  });
+
+  const totalDuration = resolvedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+  const totalAmount = resolvedServices.reduce((sum, s) => sum + Number(s.effectivePrice), 0);
   const endTime = addMinutes(startTime, totalDuration);
 
   // 4. Validate staff belongs to this business and is active
@@ -238,7 +262,7 @@ const validateBooking = async (prisma, { businessId, staffId, appointmentDate, s
   today.setHours(0, 0, 0, 0);
   if (apptDate < today) throw ApiError.badRequest("Appointment date cannot be in the past.", "PAST_DATE");
 
-  return { services, totalDuration, totalAmount, endTime };
+  return { services: resolvedServices, totalDuration, totalAmount, endTime };
 };
 
 // ── Create ────────────────────────────────────────────────────────────────────
@@ -279,7 +303,7 @@ export const createAppointment = async (data, caller) => {
         appointmentId: appt.id,
         serviceId: s.id,
         quantity: 1,
-        priceAtBooking: s.price, // historical price preserved
+        priceAtBooking: s.effectivePrice || s.price, // authoritative price preserved
       })),
     });
 
@@ -309,6 +333,8 @@ export const listAppointments = async (query, caller) => {
   } else if (caller.role === "BUSINESS" || caller.role === "STAFF") {
     const callerBizId = await resolveCallerBusinessId(caller);
     where.businessId = callerBizId;
+    if (query.staffId) where.staffId = query.staffId;
+    if (query.customerId) where.customerId = query.customerId;
   } else {
     // ADMIN: optional filters
     if (query.businessId) where.businessId = query.businessId;
@@ -426,6 +452,15 @@ export const cancelAppointment = async (appointmentId, { cancelReason }, caller)
   });
 
   logger.info(`[Appointment] Cancelled: ${appointmentId}`);
+
+  // Trigger compensation reversal/adjustment if applicable
+  try {
+    const { handleAppointmentCancellation } = await import("../compensation/compensation.service.js");
+    await handleAppointmentCancellation(appointmentId);
+  } catch (err) {
+    logger.error(`[Appointment] Error evaluating compensation reversal on cancellation: ${err.message}`);
+  }
+
   const serialized = serializeAppointment(updated);
   emitToBusiness(appt.businessId, "appointment:cancelled", { appointment: serialized });
   if (appt.customer?.user?.id) emitToCustomer(appt.customer.user.id, "appointment:cancelled", { appointment: serialized });
@@ -489,6 +524,15 @@ export const completeAppointment = async (appointmentId, caller) => {
   });
 
   logger.info(`[Appointment] Completed: ${appointmentId}`);
+
+  // Evaluate commission and incentive progress
+  try {
+    const { evaluateAppointmentCommission } = await import("../compensation/compensation.service.js");
+    await evaluateAppointmentCommission(appointmentId);
+  } catch (err) {
+    logger.error(`[Appointment] Error evaluating compensation on completion: ${err.message}`);
+  }
+
   const serialized = serializeAppointment(updated);
   emitToBusiness(appt.businessId, "appointment:updated", { appointment: serialized, action: "completed" });
   if (appt.customer?.user?.id) emitToCustomer(appt.customer.user.id, "appointment:updated", { appointment: serialized, action: "completed" });

@@ -36,6 +36,10 @@ router.route("/")
     ctrl.createStaffController
   );
 
+// ── Staff Portal: My Earnings ────────────────────────────────────────────────
+import { getStaffMeEarningsController } from "../compensation/compensation.controller.js";
+router.get("/me/earnings", requireRole("STAFF"), getStaffMeEarningsController);
+
 // ── Single resource ───────────────────────────────────────────────────────────
 
 router.route("/:id")
@@ -56,12 +60,21 @@ router.patch(
   ctrl.updateStaffStatusController
 );
 
-router.patch(
-  "/:id/schedule",
-  requireRole("ADMIN", "BUSINESS", "STAFF"),
-  validate(updateStaffScheduleSchema),
-  ctrl.updateStaffScheduleController
-);
+router.route("/:id/schedule")
+  .get(
+    requireRole("ADMIN", "BUSINESS", "STAFF"),
+    ctrl.getStaffScheduleController
+  )
+  .patch(
+    requireRole("ADMIN", "BUSINESS", "STAFF"),
+    validate(updateStaffScheduleSchema),
+    ctrl.updateStaffScheduleController
+  )
+  .put(
+    requireRole("ADMIN", "BUSINESS", "STAFF"),
+    validate(updateStaffScheduleSchema),
+    ctrl.updateStaffScheduleController
+  );
 
 router.get(
   "/:id/appointments",

@@ -15,6 +15,47 @@ import logger from "../utils/logger.js";
 // Cache queues to avoid duplicate instantiation
 const queues = new Map();
 
+// Registered worker definitions waiting for or running with Redis
+const registeredWorkers = [];
+
+/**
+ * Instantiates a BullMQ worker on an active Redis connection.
+ */
+const startWorkerInstance = (def) => {
+  if (def.instance) {
+    def.instance.resume().catch(() => {});
+    return def.instance;
+  }
+
+  const worker = new Worker(def.queueName, def.processor, {
+    connection: redisConnection,
+    concurrency: def.concurrency,
+  });
+
+  worker.on("error", (err) => {
+    if (err.message?.includes("ECONNREFUSED") || err.message?.includes("Max retries reached")) {
+      logger.warn(`[BullMQ] Worker for ${def.queueName} paused due to Redis connection error.`);
+      worker.pause(true).catch(() => {});
+    } else {
+      logger.error(`[BullMQ] Worker error in ${def.queueName}: ${err.message}`);
+    }
+  });
+
+  worker.on("failed", (job, err) => {
+    logger.error(`[BullMQ] Job ${job?.name || "unknown"} in ${def.queueName} failed: ${err.message}`);
+  });
+
+  def.instance = worker;
+  return worker;
+};
+
+// When Redis successfully connects, initialize all registered workers
+redisConnection.on("connect", () => {
+  for (const def of registeredWorkers) {
+    startWorkerInstance(def);
+  }
+});
+
 /**
  * Safely creates or retrieves a BullMQ Queue.
  * Wraps `.add()` so that if Redis is down, it just logs and resolves immediately,
@@ -26,6 +67,11 @@ export const getQueue = (queueName) => {
   }
 
   const queue = new Queue(queueName, { connection: redisConnection });
+
+  queue.on("error", (err) => {
+    if (!isRedisConnected) return;
+    logger.error(`[BullMQ] Queue error in ${queueName}: ${err.message}`);
+  });
   
   // Intercept add()
   const originalAdd = queue.add.bind(queue);
@@ -43,31 +89,22 @@ export const getQueue = (queueName) => {
 
 /**
  * Safely creates a BullMQ Worker.
- * If Redis is down, it does NOT start the worker to avoid crash loops.
+ * Defers worker creation until Redis is confirmed connected.
+ * If Redis is unavailable, returns a safe handle and does NOT instantiate
+ * a BullMQ Worker to prevent duplicate connection errors and crash loops.
  */
 export const createWorker = (queueName, processor, concurrency = 1) => {
-  // If we know Redis is definitely down on boot, we could avoid starting it entirely,
-  // but Redis might connect asynchronously a few ms after boot.
-  // BullMQ Worker handles reconnects automatically, but will throw if maxRetriesPerRequest is null
-  // and the connection fails entirely. We'll catch and log worker errors.
+  const def = { queueName, processor, concurrency, instance: null };
+  registeredWorkers.push(def);
 
-  const worker = new Worker(queueName, processor, {
-    connection: redisConnection,
-    concurrency,
-  });
+  if (isRedisConnected) {
+    return startWorkerInstance(def);
+  }
 
-  worker.on("error", (err) => {
-    if (err.message.includes("ECONNREFUSED") || err.message.includes("Max retries reached")) {
-      logger.warn(`[BullMQ] Worker for ${queueName} paused due to Redis connection error.`);
-      worker.pause(true).catch(() => {}); // forcefully pause without throwing
-    } else {
-      logger.error(`[BullMQ] Worker error in ${queueName}: ${err.message}`);
-    }
-  });
-
-  worker.on("failed", (job, err) => {
-    logger.error(`[BullMQ] Job ${job?.name || 'unknown'} in ${queueName} failed: ${err.message}`);
-  });
-
-  return worker;
+  // Return a safe handle with no-op/proxy methods if Redis is not yet connected
+  return {
+    pause: async (...args) => def.instance?.pause(...args),
+    resume: async (...args) => def.instance?.resume(...args),
+    close: async (...args) => def.instance?.close(...args),
+  };
 };

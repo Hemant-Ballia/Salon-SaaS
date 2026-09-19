@@ -207,7 +207,23 @@ export const login = async ({ email, password }) => {
   // Find user — use generic error to prevent user enumeration
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { ...USER_SAFE_SELECT, passwordHash: true, deletedAt: true },
+    select: {
+      ...USER_SAFE_SELECT,
+      passwordHash: true,
+      deletedAt: true,
+      staffProfile: {
+        select: {
+          id: true,
+          businessId: true,
+          displayName: true,
+          designation: true,
+          bio: true,
+          profileImageUrl: true,
+          status: true,
+          business: { select: { id: true, name: true, slug: true, businessType: true } },
+        },
+      },
+    },
   });
 
   const INVALID_CREDS_ERROR = ApiError.unauthorized(
@@ -280,7 +296,21 @@ export const getMe = async (userId) => {
   const prisma = getDB();
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: USER_SAFE_SELECT,
+    select: {
+      ...USER_SAFE_SELECT,
+      staffProfile: {
+        select: {
+          id: true,
+          businessId: true,
+          displayName: true,
+          designation: true,
+          bio: true,
+          profileImageUrl: true,
+          status: true,
+          business: { select: { id: true, name: true, slug: true, businessType: true } },
+        },
+      },
+    },
   });
 
   if (!user) {

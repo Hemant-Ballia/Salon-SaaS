@@ -121,20 +121,30 @@ if (IS_DEVELOPMENT) {
 // Applied to all routes. Individual routes add tighter limits on top.
 app.use(`/api/${API_VERSION}`, generalLimiter);
 
-// ── 7. Public health endpoints ────────────────────────────────────────────────
-// These must be registered BEFORE the versioned router to avoid auth middleware.
+// ── 7. Public root & health endpoints ─────────────────────────────────────────
+// These must be registered BEFORE the versioned router and 404 middleware.
 // No authentication. No rate limiting (health checks must always succeed).
 
-app.get("/api/health", (_req, res) => {
+// Root handler to confirm API is running and prevent "Route not found" in browser
+app.get("/", (_req, res) => {
   res.status(200).json({
     success: true,
     message: "Salon SaaS API is running",
+    version: API_VERSION || "v1",
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || "development",
   });
 });
 
-// ── 8. Versionedapp.get("/api/health", (req, res) => res.status(200).json({ status: "OK", timestamp: new Date() }));
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Salon SaaS API is running",
+    version: API_VERSION || "v1",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || "development",
+  });
+});
 
 // ── 8. API Router ────────────────────────────────────────────────────────────
 
