@@ -52,8 +52,9 @@ export default function UsersPage() {
     },
   });
 
-  // Client-side search filtering over fetched items
+  // Client-side search filtering over fetched items (strictly exclude master ADMIN accounts)
   const filteredUsers = (data?.data ?? []).filter((u) => {
+    if (u.role === "ADMIN") return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -105,18 +106,20 @@ export default function UsersPage() {
               View
             </Button>
           </NextLink>
-          <Button
-            variant={user.isActive ? "destructive" : "outline"}
-            size="sm"
-            className="h-8 px-2.5"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedUser(user);
-            }}
-          >
-            <Power className="h-3.5 w-3.5 mr-1" />
-            {user.isActive ? "Deactivate" : "Activate"}
-          </Button>
+          {user.role !== "ADMIN" && (
+            <Button
+              variant={user.isActive ? "destructive" : "outline"}
+              size="sm"
+              className="h-8 px-2.5"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedUser(user);
+              }}
+            >
+              <Power className="h-3.5 w-3.5 mr-1" />
+              {user.isActive ? "Deactivate" : "Activate"}
+            </Button>
+          )}
         </div>
       ),
     },
@@ -143,8 +146,7 @@ export default function UsersPage() {
                 setPage(1);
               }}
               options={[
-                { value: "ALL", label: "All Roles" },
-                { value: "ADMIN", label: "ADMIN" },
+                { value: "ALL", label: "All Roles (Non-Admin)" },
                 { value: "BUSINESS", label: "BUSINESS" },
                 { value: "STAFF", label: "STAFF" },
                 { value: "CUSTOMER", label: "CUSTOMER" },

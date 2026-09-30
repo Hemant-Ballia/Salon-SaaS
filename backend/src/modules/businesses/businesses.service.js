@@ -14,6 +14,8 @@ import ApiError from "../../utils/apiError.js";
 import logger from "../../utils/logger.js";
 import { CUSTOMER_FRONTEND_URL } from "../../config/env.js";
 import { ensureBusinessQr, generateSecureToken, generateQrDataUrl } from "../qr/qr.service.js";
+import { hashPassword, generateSecureTemporaryPassword } from "../../utils/password.js";
+import { withTransaction } from "../../utils/transaction.js";
 
 // ── Safe select (no sensititive fields) ──────────────────────────────────────
 
@@ -59,26 +61,154 @@ export const createBusiness = async (data, caller) => {
   const userId = typeof caller === "object" ? caller.userId : caller;
   const role = typeof caller === "object" ? caller.role : null;
 
-  // Non-ADMIN users: check if they already have a registered business
-  // ADMIN users can register, store, and manage multiple business accounts (1-to-many)
-  if (role !== "ADMIN") {
-    const existing = await prisma.business.findFirst({ where: { ownerId: userId, deletedAt: null }, select: { id: true } });
-    if (existing) throw ApiError.conflict("You already have a registered business.", "BUSINESS_EXISTS");
+  if (role === "ADMIN") {
+    const businessEmail = data.email?.toLowerCase().trim();
+    if (!businessEmail) {
+      throw ApiError.badRequest("Business login email is required.", "EMAIL_REQUIRED");
+    }
+
+    // 1. Check duplicate email in User table
+    const existingUser = await prisma.user.findFirst({
+      where: { email: businessEmail },
+      select: { id: true, email: true },
+    });
+    if (existingUser) {
+      throw ApiError.conflict("An account with this email already exists.", "EMAIL_EXISTS");
+    }
+
+    // 2. Check duplicate phone in User table if phone is provided
+    if (data.phone) {
+      const existingPhone = await prisma.user.findFirst({
+        where: { phone: data.phone },
+        select: { id: true },
+      });
+      if (existingPhone) {
+        throw ApiError.conflict("An account with this phone number already exists.", "PHONE_EXISTS");
+      }
+    }
+
+    // 3. Check if business already has this email
+    const existingBusiness = await prisma.business.findFirst({
+      where: { email: businessEmail, deletedAt: null },
+      select: { id: true },
+    });
+    if (existingBusiness) {
+      throw ApiError.conflict("A business with this email already exists.", "BUSINESS_EXISTS");
+    }
+
+    // 4. Generate cryptographically secure random temporary password & hash
+    const temporaryPassword = generateSecureTemporaryPassword(14);
+    const passwordHash = await hashPassword(temporaryPassword);
+
+    // 5. Unique slug
+    const baseSlug = data.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    let slug = baseSlug;
+    let n = 1;
+    while (await prisma.business.findUnique({ where: { slug }, select: { id: true } })) {
+      slug = `${baseSlug}-${n++}`;
+    }
+
+    // 6. Atomic transaction: create Owner User + notificationPreference + Business
+    const { ownerUser, business } = await withTransaction(async (tx) => {
+      const owner = await tx.user.create({
+        data: {
+          name: data.ownerName?.trim() || data.name.trim(),
+          email: businessEmail,
+          phone: data.phone || null,
+          passwordHash,
+          role: "BUSINESS",
+          isActive: true,
+          isEmailVerified: true,
+          mustChangePassword: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          isActive: true,
+          mustChangePassword: true,
+        },
+      });
+
+      await tx.notificationPreference.create({
+        data: { userId: owner.id },
+      });
+
+      // eslint-disable-next-line no-unused-vars
+      const { ownerName, ...businessFields } = data;
+      const newBusiness = await tx.business.create({
+        data: {
+          ...businessFields,
+          email: businessEmail,
+          ownerId: owner.id,
+          slug,
+          status: "ACTIVE",
+          isActive: true,
+        },
+        select: BUSINESS_SELECT,
+      });
+
+      return { ownerUser: owner, business: newBusiness };
+    });
+
+    // Ensure QR code is initialized (non-blocking)
+    ensureBusinessQr(business.id).catch((err) => {
+      logger.warn(`[Business] QR auto-generation failed: ${err.message}`);
+    });
+
+    // Audit log (never log password, ensure valid UUID for userId)
+    const isUuid = typeof userId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
+    if (isUuid) {
+      prisma.user.findUnique({ where: { id: userId }, select: { id: true } }).then((u) => {
+        if (u) {
+          prisma.auditLog.create({
+            data: {
+              userId,
+              businessId: business.id,
+              action: "BUSINESS_REGISTERED_BY_ADMIN",
+              entity: "Business",
+              entityId: business.id,
+              metadata: {
+                businessName: business.name,
+                ownerEmail: ownerUser.email,
+              },
+            },
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
+
+    logger.info(`[Business] Admin registered business: "${business.name}" with owner: ${ownerUser.email}`);
+
+    return {
+      business,
+      owner: {
+        id: ownerUser.id,
+        name: ownerUser.name,
+        email: ownerUser.email,
+      },
+      temporaryPassword,
+    };
   }
 
-  // Unique slug
+  // Non-ADMIN callers:
+  const existing = await prisma.business.findFirst({ where: { ownerId: userId, deletedAt: null }, select: { id: true } });
+  if (existing) throw ApiError.conflict("You already have a registered business.", "BUSINESS_EXISTS");
+
   const base = data.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   let slug = base, n = 1;
   while (await prisma.business.findUnique({ where: { slug }, select: { id: true } })) slug = `${base}-${n++}`;
 
-  const isAdmin = role === "ADMIN";
+  // eslint-disable-next-line no-unused-vars
+  const { ownerName, ...bizData } = data;
   const business = await prisma.business.create({
     data: {
-      ...data,
+      ...bizData,
       ownerId: userId,
       slug,
-      status: isAdmin ? "ACTIVE" : "PENDING",
-      isActive: isAdmin ? true : false,
+      status: "PENDING",
+      isActive: false,
     },
     select: BUSINESS_SELECT,
   });

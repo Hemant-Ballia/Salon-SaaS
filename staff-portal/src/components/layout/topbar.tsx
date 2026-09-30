@@ -11,37 +11,40 @@ export const Topbar: React.FC<{ title?: string }> = ({ title }) => {
   const { isConnected } = useSocket();
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-4 sm:px-6">
-      <div className="flex items-center gap-3">
-        <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200/80 bg-white/95 backdrop-blur-md px-4 sm:px-6 shrink-0">
+      {/* Left: Title + Business Context */}
+      <div className="flex items-center gap-2.5 min-w-0">
+        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight truncate">
           {title || "Staff Workspace"}
         </h2>
+        {staff?.business?.name && (
+          <span className="hidden sm:inline-flex items-center text-xs text-slate-400 font-medium truncate">
+            <span className="mx-1.5 text-slate-300">•</span>
+            {staff.business.name}
+          </span>
+        )}
       </div>
 
-      <div className="flex items-center gap-3 sm:gap-4">
-        {/* Live Status indicator */}
-        <div
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-            isConnected
-              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-              : "bg-amber-50 text-amber-700 border border-amber-200"
-          }`}
-        >
-          <Radio className={`w-3.5 h-3.5 ${isConnected ? "animate-pulse text-emerald-600" : "text-amber-500"}`} />
-          <span className="hidden sm:inline">{isConnected ? "Live Connected" : "Connecting..."}</span>
+      {/* Right: Shift status + Alerts + Profile */}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Current Shift / Realtime Status */}
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/70">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>On Shift</span>
         </div>
 
         {/* Alerts Bell */}
         <Link
           href="/notifications"
-          className="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+          className="relative p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+          aria-label="Notifications"
         >
-          <Bell className="w-5 h-5" />
+          <Bell className="w-4 h-4" />
         </Link>
 
-        {/* Mobile Specialist Avatar */}
-        <Link href="/profile" className="lg:hidden flex items-center">
-          <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs shadow-xs">
+        {/* Profile Avatar */}
+        <Link href="/profile" className="flex items-center gap-2 pl-1 group">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-900 text-white font-bold flex items-center justify-center text-xs shadow-2xs group-hover:bg-emerald-700 transition-colors">
             {(staff?.displayName || "S").slice(0, 2).toUpperCase()}
           </div>
         </Link>

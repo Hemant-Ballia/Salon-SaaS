@@ -151,19 +151,20 @@ export default function AppointmentDetailPage() {
   const isCancelled = apt.status === "CANCELLED";
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-4xl">
+      {/* Top Navigation & Status */}
       <div>
         <Link
           href="/appointments"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors mb-3"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors mb-2.5"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-3.5 h-3.5" />
           Back to Appointments
         </Link>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-black tracking-tight text-slate-900">
-              Booking Details
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Appointment Details
             </h1>
             <StatusBadge status={apt.status} />
           </div>
@@ -171,22 +172,22 @@ export default function AppointmentDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             {isPending && (
               <Button
-                className="gap-2 font-bold"
+                className="gap-1.5 font-medium text-xs h-9 px-3.5 bg-emerald-600 hover:bg-emerald-700"
                 onClick={() => confirmMutation.mutate()}
                 isLoading={confirmMutation.isPending}
               >
-                <CheckCircle className="w-4 h-4" />
-                Confirm
+                <CheckCircle className="w-3.5 h-3.5" />
+                Confirm Booking
               </Button>
             )}
 
             {isConfirmed && (
               <Button
-                className="gap-2 font-bold bg-emerald-600 hover:bg-emerald-700"
+                className="gap-1.5 font-medium text-xs h-9 px-3.5 bg-emerald-600 hover:bg-emerald-700"
                 onClick={() => completeMutation.mutate()}
                 isLoading={completeMutation.isPending}
               >
-                <CheckCircle2 className="w-4 h-4" />
+                <CheckCircle2 className="w-3.5 h-3.5" />
                 Complete Service
               </Button>
             )}
@@ -196,34 +197,34 @@ export default function AppointmentDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5"
+                  className="gap-1.5 text-xs font-medium h-9 text-slate-700"
                   onClick={() => {
                     setNewDate(apt.appointmentDate ? apt.appointmentDate.split("T")[0] : "");
                     setNewTime(apt.startTime || "10:00");
                     setIsRescheduleModalOpen(true);
                   }}
                 >
-                  <CalendarClock className="w-4 h-4" />
+                  <CalendarClock className="w-3.5 h-3.5 text-slate-500" />
                   Reschedule
                 </Button>
 
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-amber-600 border-amber-200 hover:bg-amber-50"
+                  className="text-amber-700 border-amber-200 hover:bg-amber-50 text-xs font-medium h-9"
                   onClick={() => setIsNoShowConfirmOpen(true)}
                 >
-                  <UserX className="w-4 h-4" />
+                  <UserX className="w-3.5 h-3.5" />
                   No-Show
                 </Button>
 
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-rose-600 border-rose-200 hover:bg-rose-50"
+                  className="text-rose-700 border-rose-200 hover:bg-rose-50 text-xs font-medium h-9"
                   onClick={() => setIsCancelModalOpen(true)}
                 >
-                  <XCircle className="w-4 h-4" />
+                  <XCircle className="w-3.5 h-3.5" />
                   Cancel
                 </Button>
               </>
@@ -232,73 +233,76 @@ export default function AppointmentDetailPage() {
         </div>
       </div>
 
-      {/* Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
-              <User className="w-4 h-4 text-emerald-600" />
-              Customer Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 font-black flex items-center justify-center text-sm">
-                {clientName.slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <p className="font-bold text-slate-900">{clientName}</p>
-                <p className="text-xs text-slate-400">Client Contact</p>
-              </div>
-            </div>
+      {/* Info Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Customer Information Card */}
+        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-100 text-xs font-bold text-slate-700 uppercase tracking-wider">
+            <User className="w-4 h-4 text-emerald-600" />
+            Customer Information
+          </div>
 
-            <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
-              <div className="flex items-center gap-2 text-slate-600">
-                <Phone className="w-4 h-4 text-slate-400" />
-                <span className="font-medium">{clientPhone}</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-600">
-                <Mail className="w-4 h-4 text-slate-400" />
-                <span>{clientEmail}</span>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-slate-100 text-slate-800 font-bold flex items-center justify-center text-sm">
+              {clientName.slice(0, 2).toUpperCase()}
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="font-bold text-slate-900 text-sm">{clientName}</p>
+              <p className="text-xs text-slate-400">Client Profile</p>
+            </div>
+          </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Scissors className="w-4 h-4 text-emerald-600" />
-              Treatment & Schedule
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="p-3 bg-slate-50 rounded-xl">
-              <p className="font-bold text-slate-900">{serviceName}</p>
-              <p className="text-xs text-slate-500 mt-0.5">Estimated: {duration} mins</p>
+          <div className="space-y-2 pt-1 text-xs text-slate-600">
+            <div className="flex items-center gap-2">
+              <Phone className="w-3.5 h-3.5 text-slate-400" />
+              <span className="font-medium text-slate-800">{clientPhone}</span>
             </div>
+            <div className="flex items-center gap-2">
+              <Mail className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-slate-600">{clientEmail}</span>
+            </div>
+          </div>
+        </div>
 
-            <div className="space-y-2 pt-1 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Date:</span>
-                <span className="font-bold text-slate-800">{formatDate(apt.appointmentDate)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Time Window:</span>
-                <span className="font-bold text-slate-800">
-                  {formatTime(apt.startTime)} - {formatTime(apt.endTime)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Total Price:</span>
-                <span className="font-extrabold text-emerald-700">
-                  {formatCurrency(apt.totalAmount || apt.service?.price || 0)}
-                </span>
-              </div>
+        {/* Treatment & Schedule Card */}
+        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-100 text-xs font-bold text-slate-700 uppercase tracking-wider">
+            <Scissors className="w-4 h-4 text-emerald-600" />
+            Treatment & Schedule
+          </div>
+
+          <div>
+            <p className="font-bold text-slate-900 text-sm">{serviceName}</p>
+            <p className="text-xs text-slate-500 mt-0.5">Estimated Duration: {duration} mins</p>
+          </div>
+
+          <div className="space-y-2 pt-1 text-xs divide-y divide-slate-100">
+            <div className="flex justify-between py-1">
+              <span className="text-slate-500">Date</span>
+              <span className="font-semibold text-slate-800">{formatDate(apt.appointmentDate)}</span>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex justify-between py-1">
+              <span className="text-slate-500">Scheduled Time</span>
+              <span className="font-semibold text-slate-800">
+                {formatTime(apt.startTime)} - {formatTime(apt.endTime)}
+              </span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-slate-500">Assigned Specialist</span>
+              <span className="font-semibold text-slate-800">
+                {apt.staff?.displayName || "You"}
+              </span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-slate-500">Total Price</span>
+              <span className="font-bold text-slate-900 text-sm">
+                {formatCurrency(apt.totalAmount || apt.service?.price || 0)}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
+
 
       {/* Reschedule Modal */}
       <Modal

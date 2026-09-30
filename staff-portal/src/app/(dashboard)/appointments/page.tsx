@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/auth-context";
+import { useSocket } from "@/context/socket-context";
 import { 
   getStaffAppointmentsApi 
 } from "@/lib/api/staff";
@@ -36,16 +37,49 @@ import {
 export default function AppointmentsPage() {
   const queryClient = useQueryClient();
   const { staffId } = useAuth();
+  const { socket } = useSocket();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [dateFilter, setDateFilter] = useState("");
+  const [timeframe, setTimeframe] = useState<"all" | "today" | "tomorrow">("all");
   const [page, setPage] = useState(1);
 
+  React.useEffect(() => {
+    if (!socket) return;
+    const handleUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ["staff-appointments-list"] });
+      queryClient.invalidateQueries({ queryKey: ["staff-appointments"] });
+    };
+
+    socket.on("appointment:created", handleUpdate);
+    socket.on("appointment:new", handleUpdate);
+    socket.on("appointment:updated", handleUpdate);
+    socket.on("appointment:cancelled", handleUpdate);
+
+    return () => {
+      socket.off("appointment:created", handleUpdate);
+      socket.off("appointment:new", handleUpdate);
+      socket.off("appointment:updated", handleUpdate);
+      socket.off("appointment:cancelled", handleUpdate);
+    };
+  }, [socket, queryClient]);
+
+  const [todayStr] = useState(() => new Date().toISOString().split("T")[0]);
+  const [tomorrowStr] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split("T")[0];
+  });
+
+  const activeDate = timeframe === "today" ? todayStr : timeframe === "tomorrow" ? tomorrowStr : dateFilter;
+
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["staff-appointments-list", staffId, statusFilter, page],
+    queryKey: ["staff-appointments-list", staffId, statusFilter, activeDate, page],
     queryFn: () => (staffId ? getStaffAppointmentsApi(staffId, {
       page,
-      limit: 30,
+      limit: 50,
       status: statusFilter === "ALL" ? undefined : statusFilter,
+      date: activeDate || undefined,
     }) : null),
     enabled: !!staffId,
   });
@@ -80,149 +114,320 @@ export default function AppointmentsPage() {
     const q = search.toLowerCase();
     const custName = apt.customer?.user?.displayName || apt.customer?.user?.name || "";
     const svcName = apt.service?.name || apt.appointmentServices?.[0]?.service?.name || "";
-    return custName.toLowerCase().includes(q) || svcName.toLowerCase().includes(q);
+    const phone = apt.customer?.user?.phone || "";
+    return (
+      custName.toLowerCase().includes(q) ||
+      svcName.toLowerCase().includes(q) ||
+      phone.includes(q)
+    );
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-black tracking-tight text-slate-900">
-          My Appointments
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          Appointments
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Review, confirm and complete your assigned client bookings.
+        <p className="text-sm text-slate-500 mt-0.5">
+          Operational appointment workspace — view, confirm, and complete your assigned bookings.
         </p>
       </div>
 
-      {/* Filter Bar */}
-      <Card>
-        <CardContent className="p-4 flex flex-col sm:flex-row items-center gap-4">
-          <div className="flex-1 w-full">
-            <SearchInput
-              value={search}
-              onChange={setSearch}
-              placeholder="Search by client or service name..."
-            />
+      {/* Filter Toolbar */}
+      <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-3">
+        {/* Quick Date Tabs & Status Filters */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Quick Date Segment */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+            <button
+              type="button"
+              onClick={() => {
+                setTimeframe("all");
+                setDateFilter("");
+                setPage(1);
+              }}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                timeframe === "all" && !dateFilter
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              All Dates
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTimeframe("today");
+                setDateFilter("");
+                setPage(1);
+              }}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                timeframe === "today"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTimeframe("tomorrow");
+                setDateFilter("");
+                setPage(1);
+              }}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                timeframe === "tomorrow"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Tomorrow
+            </button>
           </div>
-          <div className="w-full sm:w-48">
-            <Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              options={[
-                { value: "ALL", label: "All Statuses" },
-                { value: "PENDING", label: "Pending" },
-                { value: "CONFIRMED", label: "Confirmed" },
-                { value: "COMPLETED", label: "Completed" },
-                { value: "CANCELLED", label: "Cancelled" },
-                { value: "NO_SHOW", label: "No Show" },
-              ]}
-            />
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Content */}
+          {/* Date Picker for Custom Date & Status dropdown */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value);
+                setTimeframe("all");
+                setPage(1);
+              }}
+              className="h-9 px-3 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              title="Custom date filter"
+            />
+            {dateFilter && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDateFilter("")}
+                className="text-xs text-slate-500 hover:text-slate-800 h-9 px-2"
+              >
+                Clear
+              </Button>
+            )}
+
+            <div className="w-36">
+              <Select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
+                options={[
+                  { value: "ALL", label: "All Statuses" },
+                  { value: "PENDING", label: "Pending" },
+                  { value: "CONFIRMED", label: "Confirmed" },
+                  { value: "COMPLETED", label: "Completed" },
+                  { value: "CANCELLED", label: "Cancelled" },
+                  { value: "NO_SHOW", label: "No Show" },
+                ]}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Customer Search */}
+        <div className="w-full">
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search customer, service name, or phone number..."
+          />
+        </div>
+      </div>
+
+      {/* Content Area */}
       {isLoading ? (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-2xl" />
+            <Skeleton key={i} className="h-14 w-full rounded-xl" />
           ))}
         </div>
       ) : error ? (
         <ErrorState
           title="Failed to load appointments"
-          description="Could not connect to service. Please verify your internet connection."
+          description="Could not connect to service. Please verify your connection."
           onRetry={() => refetch()}
         />
       ) : appointments.length === 0 ? (
         <EmptyState
           icon={Calendar}
-          title="No bookings found"
+          title="No appointments found"
           description={
-            search || statusFilter !== "ALL"
-              ? "No appointments match your filter criteria."
-              : "You have no upcoming or past bookings assigned."
+            search || statusFilter !== "ALL" || activeDate
+              ? "No appointments match your search or filter criteria."
+              : "No appointments are currently scheduled for your profile."
           }
         />
       ) : (
-        <div className="space-y-3">
-          {appointments.map((apt) => {
-            const custName = apt.customer?.user?.displayName || apt.customer?.user?.name || "Client";
-            const custPhone = apt.customer?.user?.phone || "";
-            const svcName = apt.service?.name || apt.appointmentServices?.[0]?.service?.name || "Service";
-            const isPending = apt.status === "PENDING";
-            const isConfirmed = apt.status === "CONFIRMED";
+        <div className="space-y-4">
+          {/* Desktop Table View */}
+          <div className="hidden md:block rounded-2xl bg-white border border-slate-200/80 overflow-hidden shadow-xs">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                <tr>
+                  <th className="py-3 px-4">Time & Date</th>
+                  <th className="py-3 px-4">Customer</th>
+                  <th className="py-3 px-4">Service</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Amount</th>
+                  <th className="py-3 px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {appointments.map((apt) => {
+                  const custName = apt.customer?.user?.displayName || apt.customer?.user?.name || "Client";
+                  const custPhone = apt.customer?.user?.phone || "";
+                  const serviceName = apt.service?.name || apt.appointmentServices?.[0]?.service?.name || "Service";
+                  const duration = apt.service?.durationMinutes || 30;
+                  const isPending = apt.status === "PENDING";
+                  const isConfirmed = apt.status === "CONFIRMED";
 
-            return (
-              <Card key={apt.id} className="hover:border-emerald-300 transition-colors">
-                <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 font-extrabold flex items-center justify-center text-sm shrink-0">
-                      {custName.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-slate-900 text-sm truncate">{custName}</h3>
+                  return (
+                    <tr key={apt.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="font-bold text-slate-900">
+                          {formatTime(apt.startTime)}
+                        </div>
+                        <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                          <span>{formatDate(apt.appointmentDate)}</span>
+                          <span>•</span>
+                          <span>{duration}m</span>
+                        </div>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <div className="font-semibold text-slate-900">{custName}</div>
+                        {custPhone && <div className="text-[11px] text-slate-400">{custPhone}</div>}
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-slate-800">{serviceName}</div>
+                      </td>
+
+                      <td className="py-3 px-4 whitespace-nowrap">
                         <StatusBadge status={apt.status} />
-                      </div>
-                      <p className="text-xs text-slate-500 font-medium mt-0.5">{svcName}</p>
-                      <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 mt-1">
-                        <span className="flex items-center gap-1 font-semibold text-slate-600">
-                          <Calendar className="w-3 h-3 text-slate-400" />
-                          {formatDate(apt.appointmentDate)}
+                      </td>
+
+                      <td className="py-3 px-4 whitespace-nowrap font-medium text-slate-700">
+                        {apt.totalAmount ? formatCurrency(apt.totalAmount) : "—"}
+                      </td>
+
+                      <td className="py-3 px-4 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {isPending && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 text-xs font-medium h-7 px-2.5"
+                              isLoading={confirmMutation.isPending}
+                              onClick={() => confirmMutation.mutate(apt.id)}
+                            >
+                              Confirm
+                            </Button>
+                          )}
+
+                          {isConfirmed && (
+                            <Button
+                              size="sm"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium h-7 px-2.5"
+                              isLoading={completeMutation.isPending}
+                              onClick={() => completeMutation.mutate(apt.id)}
+                            >
+                              Complete
+                            </Button>
+                          )}
+
+                          <Link href={`/appointments/${apt.id}`}>
+                            <Button variant="ghost" size="sm" className="text-xs font-medium text-slate-600 h-7 px-2">
+                              View
+                            </Button>
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Stacked List View */}
+          <div className="md:hidden divide-y divide-slate-100 rounded-2xl bg-white border border-slate-200/80 overflow-hidden shadow-xs">
+            {appointments.map((apt) => {
+              const custName = apt.customer?.user?.displayName || apt.customer?.user?.name || "Client";
+              const custPhone = apt.customer?.user?.phone || "";
+              const serviceName = apt.service?.name || apt.appointmentServices?.[0]?.service?.name || "Service";
+              const duration = apt.service?.durationMinutes || 30;
+              const isPending = apt.status === "PENDING";
+              const isConfirmed = apt.status === "CONFIRMED";
+
+              return (
+                <div key={apt.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 text-sm">
+                          {formatTime(apt.startTime)}
                         </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-slate-400" />
-                          {formatTime(apt.startTime)} - {formatTime(apt.endTime)}
-                        </span>
-                        {custPhone && (
-                          <span className="flex items-center gap-1">
-                            <Phone className="w-3 h-3 text-slate-400" />
-                            {custPhone}
-                          </span>
-                        )}
+                        <span className="text-xs text-slate-400 font-medium">({duration}m)</span>
                       </div>
+                      <p className="text-[11px] text-slate-500">{formatDate(apt.appointmentDate)}</p>
+                    </div>
+                    <StatusBadge status={apt.status} />
+                  </div>
+
+                  <div className="text-xs">
+                    <p className="font-semibold text-slate-900">{custName}</p>
+                    <p className="text-slate-500">{serviceName}</p>
+                    {custPhone && <p className="text-slate-400 mt-0.5">{custPhone}</p>}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <span className="text-xs font-semibold text-slate-700">
+                      {apt.totalAmount ? formatCurrency(apt.totalAmount) : ""}
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      {isPending && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 text-xs font-medium h-7 px-2.5"
+                          isLoading={confirmMutation.isPending}
+                          onClick={() => confirmMutation.mutate(apt.id)}
+                        >
+                          Confirm
+                        </Button>
+                      )}
+
+                      {isConfirmed && (
+                        <Button
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium h-7 px-2.5"
+                          isLoading={completeMutation.isPending}
+                          onClick={() => completeMutation.mutate(apt.id)}
+                        >
+                          Complete
+                        </Button>
+                      )}
+
+                      <Link href={`/appointments/${apt.id}`}>
+                        <Button variant="ghost" size="sm" className="text-xs font-medium text-slate-600 h-7 px-2">
+                          View
+                        </Button>
+                      </Link>
                     </div>
                   </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                    {isPending && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 text-xs font-bold gap-1"
-                        isLoading={confirmMutation.isPending}
-                        onClick={() => confirmMutation.mutate(apt.id)}
-                      >
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        Confirm
-                      </Button>
-                    )}
-
-                    {isConfirmed && (
-                      <Button
-                        size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1"
-                        isLoading={completeMutation.isPending}
-                        onClick={() => completeMutation.mutate(apt.id)}
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        Complete
-                      </Button>
-                    )}
-
-                    <Link href={`/appointments/${apt.id}`}>
-                      <Button variant="ghost" size="sm" className="text-xs font-semibold text-slate-600">
-                        Details
-                        <ChevronRight className="w-3.5 h-3.5 ml-1 text-slate-400" />
-                      </Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

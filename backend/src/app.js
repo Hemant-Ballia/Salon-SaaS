@@ -129,7 +129,8 @@ app.use(`/api/${API_VERSION}`, generalLimiter);
 app.get("/", (_req, res) => {
   res.status(200).json({
     success: true,
-    message: "Salon SaaS API is running",
+    status: "SERVER WORKING",
+    message: "Salon SaaS backend server is running",
     version: API_VERSION || "v1",
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || "development",

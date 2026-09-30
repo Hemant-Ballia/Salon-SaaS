@@ -209,6 +209,7 @@ model User {
   isActive        Boolean   @default(true)
   isEmailVerified Boolean   @default(false)
   isPhoneVerified Boolean   @default(false)
+  mustChangePassword Boolean @default(false)
   lastLoginAt     DateTime?
   deletedAt       DateTime?
   createdAt       DateTime  @default(now())

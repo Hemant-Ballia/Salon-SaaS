@@ -21,3 +21,14 @@ export async function getMeApi(): Promise<User> {
   const response = await apiClient.get<ApiResponse<{ user: User }>>("/auth/me");
   return response.data.data.user;
 }
+
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export async function changePasswordApi(data: ChangePasswordInput): Promise<{ message: string }> {
+  const response = await apiClient.post<ApiResponse<{ message: string }>>("/auth/change-password", data);
+  return response.data.data;
+}

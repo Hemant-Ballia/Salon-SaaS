@@ -24,3 +24,20 @@ export async function getBusinessServicesApi(businessId: string): Promise<Servic
   });
   return response.data.data || [];
 }
+
+export interface ResolvedQrData {
+  token: string;
+  type: string;
+  businessId: string;
+  serviceId?: string | null;
+  targetUrl: string;
+  scanCount: number;
+  business: Business & {
+    services?: Service[];
+  };
+}
+
+export async function resolveQrTokenApi(token: string): Promise<ResolvedQrData> {
+  const response = await apiClient.get<ApiResponse<ResolvedQrData>>(`/qr/resolve/${token}`);
+  return response.data.data;
+}

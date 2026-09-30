@@ -97,34 +97,84 @@ export default function StaffSchedulePage() {
     saveMutation.mutate(payload);
   };
 
+  const todayDayOfWeek = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"][new Date().getDay()];
+  const todaySchedule = scheduleState[todayDayOfWeek];
+  const isOnShiftToday = todaySchedule?.isAvailable;
+
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-4xl">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900">
-            My Shift Schedule
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            My Schedule & Shifts
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Configure your working days and daily hours for booking availability.
+          <p className="text-sm text-slate-500 mt-0.5">
+            Manage your daily working hours, shift windows, and booking availability.
           </p>
         </div>
 
         <Button
-          size="lg"
-          className="gap-2 font-bold shadow-md shadow-emerald-700/20"
+          className="gap-2 font-medium text-xs h-9 px-4 bg-emerald-600 hover:bg-emerald-700 shadow-xs self-start sm:self-auto"
           onClick={handleSave}
           isLoading={saveMutation.isPending}
         >
-          <Save className="w-4 h-4" />
-          Save Changes
+          <Save className="w-3.5 h-3.5" />
+          Save Schedule
         </Button>
       </div>
 
+      {/* TODAY'S SHIFT CARD */}
+      <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Today&apos;s Shift
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="text-xs font-semibold text-slate-700 capitalize">
+                {todayDayOfWeek.toLowerCase()}
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-3 pt-1">
+              {isOnShiftToday ? (
+                <div className="text-xl sm:text-2xl font-bold text-slate-900">
+                  {todaySchedule.startTime} — {todaySchedule.endTime}
+                </div>
+              ) : (
+                <div className="text-lg font-semibold text-slate-500">
+                  Scheduled Off Duty Today
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                isOnShiftToday
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : "bg-slate-100 text-slate-600 border border-slate-200"
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isOnShiftToday ? "bg-emerald-500" : "bg-slate-400"
+                }`}
+              />
+              {isOnShiftToday ? "● On Shift" : "○ Off Shift"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Weekly Schedule Configuration */}
       {isLoading ? (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-16 w-full rounded-2xl" />
+            <Skeleton key={i} className="h-14 w-full rounded-xl" />
           ))}
         </div>
       ) : error ? (
@@ -134,72 +184,82 @@ export default function StaffSchedulePage() {
           onRetry={() => refetch()}
         />
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
+        <div className="rounded-2xl bg-white border border-slate-200/80 overflow-hidden shadow-xs">
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
               <Calendar className="w-4 h-4 text-emerald-600" />
-              Weekly Working Availability
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="divide-y divide-slate-100 p-0">
+              Weekly Working Hours
+            </span>
+            <span className="text-xs text-slate-400">Toggle active days & set shift times</span>
+          </div>
+
+          <div className="divide-y divide-slate-100">
             {DAYS.map((day) => {
               const current = scheduleState[day] || {
                 isAvailable: false,
                 startTime: "09:00",
                 endTime: "18:00",
               };
+              const isToday = day === todayDayOfWeek;
 
               return (
                 <div
                   key={day}
-                  className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors"
+                  className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+                    isToday ? "bg-emerald-50/20" : "hover:bg-slate-50/50"
+                  }`}
                 >
-                  <div className="flex items-center gap-3 w-40">
+                  <div className="flex items-center gap-3 w-44">
                     <input
                       type="checkbox"
                       id={`day-${day}`}
                       checked={current.isAvailable}
                       onChange={() => handleDayToggle(day)}
-                      className="w-5 h-5 text-emerald-600 rounded-lg border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                      className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
                     />
                     <label
                       htmlFor={`day-${day}`}
-                      className="font-bold text-sm text-slate-900 cursor-pointer capitalize"
+                      className="font-semibold text-xs sm:text-sm text-slate-900 cursor-pointer capitalize flex items-center gap-1.5"
                     >
-                      {day.toLowerCase()}
+                      <span>{day.toLowerCase()}</span>
+                      {isToday && (
+                        <span className="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
+                          Today
+                        </span>
+                      )}
                     </label>
                   </div>
 
                   {current.isAvailable ? (
-                    <div className="flex items-center gap-2.5 sm:gap-3 text-xs">
-                      <div className="flex items-center gap-1.5 text-slate-500">
+                    <div className="flex items-center gap-2 sm:gap-3 text-xs">
+                      <div className="flex items-center gap-1 text-slate-500">
                         <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>Shift:</span>
+                        <span>Hours:</span>
                       </div>
                       <input
                         type="time"
                         value={current.startTime}
                         onChange={(e) => handleTimeChange(day, "startTime", e.target.value)}
-                        className="px-3 py-1.5 font-semibold text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 shadow-2xs"
+                        className="px-2.5 py-1 text-xs font-medium text-slate-900 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       />
-                      <span className="text-slate-400">to</span>
+                      <span className="text-slate-400 text-xs">—</span>
                       <input
                         type="time"
                         value={current.endTime}
                         onChange={(e) => handleTimeChange(day, "endTime", e.target.value)}
-                        className="px-3 py-1.5 font-semibold text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 shadow-2xs"
+                        className="px-2.5 py-1 text-xs font-medium text-slate-900 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       />
                     </div>
                   ) : (
-                    <span className="text-xs font-semibold text-slate-400 italic">
-                      Off Duty / Not Available
+                    <span className="text-xs text-slate-400 italic">
+                      Off Duty
                     </span>
                   )}
                 </div>
               );
             })}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );

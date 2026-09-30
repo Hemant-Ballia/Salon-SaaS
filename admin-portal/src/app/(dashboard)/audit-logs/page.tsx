@@ -98,8 +98,7 @@ export default function AuditLogsPage() {
   return (
     <AdminLayout title="Audit Logs">
       <div className="space-y-4">
-        {/* Notice */}
-        <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs">
           <SearchInput
             placeholder="Search action, entity or actor..."
             value={search}
@@ -108,9 +107,9 @@ export default function AuditLogsPage() {
             className="w-full sm:w-80"
           />
 
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
-            <span>Immutable security log * All events cryptographically tracked</span>
+          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500">
+            <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>Immutable security ledger &bull; Cryptographically recorded</span>
           </div>
         </div>
 

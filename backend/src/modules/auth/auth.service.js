@@ -36,6 +36,7 @@ const USER_SAFE_SELECT = {
   isActive: true,
   isEmailVerified: true,
   isPhoneVerified: true,
+  mustChangePassword: true,
   lastLoginAt: true,
   createdAt: true,
   updatedAt: true,
@@ -337,10 +338,18 @@ export const changePassword = async (userId, { currentPassword, newPassword }) =
     throw ApiError.badRequest("Current password is incorrect.", "WRONG_PASSWORD");
   }
 
+  if (currentPassword === newPassword) {
+    throw ApiError.badRequest("New password must be different from the current password.", "SAME_PASSWORD");
+  }
+
   const newHash = await hashPassword(newPassword);
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash: newHash, updatedAt: new Date() },
+    data: {
+      passwordHash: newHash,
+      mustChangePassword: false,
+      updatedAt: new Date(),
+    },
   });
 
   logger.info(`[Auth] Password changed for userId: ${userId}`);

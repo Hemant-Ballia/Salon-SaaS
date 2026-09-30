@@ -1,6 +1,6 @@
 import { apiClient } from "./client";
 import { ApiResponse, PaginatedResponse } from "@/types/api";
-import { Business, BusinessDashboardStats, Appointment } from "@/types/models";
+import { Business, BusinessDashboardData } from "@/types/models";
 
 export async function getMyBusinessApi(): Promise<Business | null> {
   const response = await apiClient.get<PaginatedResponse<Business>>("/businesses");
@@ -17,15 +17,31 @@ export async function updateBusinessApi(id: string, data: Partial<Business>): Pr
   return response.data.data.business;
 }
 
-export async function getBusinessDashboardApi(businessId: string): Promise<{
-  stats: BusinessDashboardStats;
-  recentAppointments: Appointment[];
-}> {
+export async function getBusinessDashboardApi(
+  businessId: string,
+  period: "7D" | "30D" | "3M" = "7D"
+): Promise<BusinessDashboardData> {
   const response = await apiClient.get<ApiResponse<{
-    dashboard: {
-      stats: BusinessDashboardStats;
-      recentAppointments: Appointment[];
-    };
-  }>>(`/businesses/${businessId}/dashboard`);
+    dashboard: BusinessDashboardData;
+  }>>(`/businesses/${businessId}/dashboard`, {
+    params: { period },
+  });
   return response.data.data.dashboard;
 }
+
+export async function getBusinessQrApi(businessId: string): Promise<any> {
+  const response = await apiClient.get<ApiResponse<{ qrCode: any }>>(`/businesses/${businessId}/qr`);
+  return response.data.data.qrCode;
+}
+
+export async function regenerateBusinessQrApi(businessId: string): Promise<any> {
+  const response = await apiClient.post<ApiResponse<{ qrCode: any }>>(`/businesses/${businessId}/qr/regenerate`);
+  return response.data.data.qrCode;
+}
+
+export async function resolveQrTokenApi(token: string): Promise<any> {
+  const response = await apiClient.get<ApiResponse<any>>(`/qr/resolve/${token}`);
+  return response.data.data;
+}
+
+

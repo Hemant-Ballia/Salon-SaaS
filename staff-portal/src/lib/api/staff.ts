@@ -19,7 +19,7 @@ export async function updateStaffScheduleApi(id: string, schedules: StaffSchedul
 
 export async function getStaffAppointmentsApi(
   id: string,
-  params?: { page?: number; limit?: number; status?: string }
+  params?: { page?: number; limit?: number; status?: string; date?: string; search?: string }
 ): Promise<PaginatedResponse<Appointment>> {
   const response = await apiClient.get<PaginatedResponse<Appointment>>(`/staff/${id}/appointments`, { params });
   return response.data;
@@ -33,11 +33,12 @@ export async function getStaffQueueApi(id: string): Promise<QueueEntry[]> {
 export async function getStaffPerformanceApi(id: string): Promise<StaffPerformanceStats> {
   const response = await apiClient.get<ApiResponse<any>>(`/staff/${id}/performance`);
   const raw = response.data.data || {};
+  const perf = raw.performance || raw;
   return {
-    totalAppointments: raw.total ?? 0,
-    completedAppointments: raw.completed ?? 0,
-    cancelledAppointments: raw.cancelled ?? 0,
-    noShowAppointments: raw.noShow ?? 0,
-    totalRevenue: Number(raw.revenue?._sum?.amount || 0),
+    totalAppointments: perf.totalAppointments ?? perf.total ?? 0,
+    completedAppointments: perf.completedAppointments ?? perf.completed ?? 0,
+    cancelledAppointments: perf.cancelledAppointments ?? perf.cancelled ?? 0,
+    noShowAppointments: perf.noShowAppointments ?? perf.noShow ?? 0,
+    totalRevenue: Number(perf.totalRevenue ?? perf.revenue?._sum?.amount ?? 0),
   };
 }

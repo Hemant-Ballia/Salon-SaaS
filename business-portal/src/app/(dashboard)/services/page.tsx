@@ -213,12 +213,17 @@ export default function ServicesPage() {
                 </p>
 
                 <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-sm">
-                  <div className="flex items-center gap-1 text-slate-600 font-medium">
+                  <div className="flex items-center gap-1 text-slate-600 font-medium text-xs">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
                     {formatDuration(svc.durationMinutes)}
                   </div>
-                  <div className="text-base font-bold text-emerald-700">
-                    {formatCurrency(svc.price)}
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                      Base Price
+                    </span>
+                    <div className="text-base font-extrabold text-emerald-700">
+                      {formatCurrency(svc.price)}
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -229,7 +234,7 @@ export default function ServicesPage() {
                   onClick={() =>
                     statusMutation.mutate({ id: svc.id, active: !svc.isActive })
                   }
-                  className={`inline-flex items-center gap-1.5 text-xs font-medium transition-colors ${
+                  className={`inline-flex items-center gap-1.5 text-xs font-semibold transition-colors ${
                     svc.isActive
                       ? "text-amber-600 hover:text-amber-700"
                       : "text-emerald-600 hover:text-emerald-700"
@@ -241,9 +246,9 @@ export default function ServicesPage() {
 
                 <div className="flex items-center gap-1">
                   <Link href={`/services/${svc.id}`}>
-                    <Button variant="ghost" size="sm" className="h-8 px-2 text-slate-600">
-                      <Edit className="w-3.5 h-3.5 mr-1" />
-                      Edit
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-slate-700 text-xs font-medium">
+                      <Edit className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                      Pricing & Overrides
                     </Button>
                   </Link>
                   <Button

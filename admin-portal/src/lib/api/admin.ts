@@ -6,13 +6,25 @@ import {
   Business,
   Customer,
   DashboardMetrics,
+  AdminDashboardData,
   Payment,
   Staff,
   User,
   BusinessStatus,
+  BusinessType,
 } from "@/types/models";
 
 // Dashboard
+export async function getAdminDashboardApi(
+  period: "7D" | "30D" | "3M" | "12M" = "7D"
+): Promise<AdminDashboardData> {
+  const response = await apiClient.get<ApiResponse<{ dashboard: AdminDashboardData }>>(
+    "/admin/dashboard",
+    { params: { period } }
+  );
+  return response.data.data.dashboard;
+}
+
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const response = await apiClient.get<ApiResponse<{ metrics: DashboardMetrics }>>("/admin/dashboard");
   return response.data.data.metrics;
@@ -62,6 +74,35 @@ export async function approveBusinessApi(id: string): Promise<Business> {
 export async function rejectBusinessApi(id: string): Promise<Business> {
   const response = await apiClient.post<ApiResponse<{ business: Business }>>(`/admin/businesses/${id}/reject`);
   return response.data.data.business;
+}
+
+export interface CreateBusinessInput {
+  name: string;
+  ownerName?: string;
+  businessType: BusinessType;
+  description?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pincode?: string;
+}
+
+export interface CreateBusinessResponse {
+  business: Business;
+  owner?: {
+    id: string;
+    name?: string;
+    email: string;
+  };
+  temporaryPassword?: string;
+}
+
+export async function createBusinessApi(data: CreateBusinessInput): Promise<CreateBusinessResponse> {
+  const response = await apiClient.post<ApiResponse<CreateBusinessResponse>>("/businesses", data);
+  return response.data.data;
 }
 
 export async function updateBusinessStatusApi(id: string, status: BusinessStatus): Promise<Business> {
@@ -136,4 +177,39 @@ export async function getAuditLogsApi(params?: {
 }): Promise<PaginatedResponse<AuditLog>> {
   const response = await apiClient.get<PaginatedResponse<AuditLog>>("/admin/audit-logs", { params });
   return response.data;
+}
+
+// Subscriptions
+export async function getSubscriptionsApi<T = Record<string, unknown>>(params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  plan?: string;
+}): Promise<PaginatedResponse<T>> {
+  const response = await apiClient.get<PaginatedResponse<T>>("/subscriptions", { params });
+  return response.data;
+}
+
+// Notifications
+export async function getNotificationsApi<T = Record<string, unknown>>(params?: {
+  page?: number;
+  limit?: number;
+  type?: string;
+}): Promise<PaginatedResponse<T>> {
+  const response = await apiClient.get<PaginatedResponse<T>>("/notifications", { params });
+  return response.data;
+}
+
+export async function markNotificationsReadApi(): Promise<void> {
+  await apiClient.patch("/notifications/read-all");
+}
+
+// Change Password
+export async function changePasswordApi(data: {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}): Promise<{ message: string }> {
+  const response = await apiClient.post<ApiResponse<{ message: string }>>("/auth/change-password", data);
+  return response.data.data;
 }

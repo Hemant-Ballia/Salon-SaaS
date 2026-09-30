@@ -10,9 +10,53 @@
  *   - Use BCRYPT_ROUNDS = 12 (good balance of security vs performance).
  */
 
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 
 const BCRYPT_ROUNDS = 12;
+
+/**
+ * Generate a cryptographically secure random temporary password.
+ * Contains uppercase, lowercase, digits, and special characters.
+ * Avoids ambiguous characters (0, O, o, 1, l, I).
+ *
+ * @param {number} [length=14] - Length of generated password (min 12)
+ * @returns {string} Plaintext temporary password
+ */
+export const generateSecureTemporaryPassword = (length = 14) => {
+  const effectiveLength = Math.max(12, length);
+
+  const upperChars = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lowerChars = "abcdefghijkmnopqrstuvwxyz";
+  const digitChars = "23456789";
+  const specialChars = "@#$!%*?&";
+  const allChars = upperChars + lowerChars + digitChars + specialChars;
+
+  // Guarantee at least 2 of each category for maximum entropy and compliance
+  const chars = [
+    upperChars[crypto.randomInt(upperChars.length)],
+    upperChars[crypto.randomInt(upperChars.length)],
+    lowerChars[crypto.randomInt(lowerChars.length)],
+    lowerChars[crypto.randomInt(lowerChars.length)],
+    digitChars[crypto.randomInt(digitChars.length)],
+    digitChars[crypto.randomInt(digitChars.length)],
+    specialChars[crypto.randomInt(specialChars.length)],
+    specialChars[crypto.randomInt(specialChars.length)],
+  ];
+
+  // Fill remaining characters
+  for (let i = chars.length; i < effectiveLength; i++) {
+    chars.push(allChars[crypto.randomInt(allChars.length)]);
+  }
+
+  // Fisher-Yates cryptographically secure shuffle
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+
+  return chars.join("");
+};
 
 /**
  * Hash a plaintext password.

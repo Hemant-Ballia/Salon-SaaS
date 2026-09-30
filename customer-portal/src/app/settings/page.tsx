@@ -13,10 +13,10 @@ import {
   CheckCircle2,
   AlertCircle,
   Save,
-  Radio
+  Radio,
+  SlidersHorizontal
 } from "lucide-react";
 import { toast } from "sonner";
-import { CustomerLayout } from "@/components/layout/customer-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -77,201 +77,212 @@ export default function SettingsPage() {
 
   if (authLoading) {
     return (
-      <CustomerLayout>
-        <div className="max-w-2xl mx-auto space-y-4">
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-64 w-full rounded-2xl" />
-        </div>
-      </CustomerLayout>
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-4">
+        <Skeleton className="h-10 w-48 rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-2xl" />
+      </div>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <CustomerLayout>
-        <div className="max-w-md mx-auto py-16 text-center">
-          <Card className="p-8">
-            <Sliders className="w-12 h-12 text-indigo-600 mx-auto mb-3" />
-            <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
-              Sign In to View Settings
-            </h2>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6">
-              Customize your communication channels and alert preferences.
-            </p>
-            <Link href="/login?redirect=/settings">
-              <Button className="w-full">Sign In to Continue</Button>
-            </Link>
-          </Card>
+      <div className="max-w-md mx-auto px-4 py-20 text-center">
+        <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs">
+          <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-emerald-600">
+            <SlidersHorizontal className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">
+            Sign In to View Settings
+          </h2>
+          <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+            Customize your communication channels and alert preferences.
+          </p>
+          <Link href="/login?redirect=/settings">
+            <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl shadow-xs">
+              Sign In to Continue
+            </Button>
+          </Link>
         </div>
-      </CustomerLayout>
+      </div>
     );
   }
 
   return (
-    <CustomerLayout>
-      <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+      {/* Header */}
+      <div>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold mb-2">
+          <Sliders className="w-3.5 h-3.5" />
+          Customer Preferences
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          Settings & Alerts
+        </h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Control how you receive booking confirmations, live queue tickets, and reminders
+        </p>
+      </div>
+
+      {/* Notification Channel Toggles */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">
-            Settings & Preferences
-          </h1>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-            Choose how you receive appointment confirmations, queue tokens, and reminders
+          <h2 className="text-base font-bold text-slate-900">
+            Delivery Channels
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Select the channels through which you wish to be alerted
           </p>
         </div>
 
-        {/* Notification Channel Toggles */}
-        <Card className="p-6 sm:p-8 space-y-6">
+        {isLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-16 w-full rounded-2xl" />
+            <Skeleton className="h-16 w-full rounded-2xl" />
+            <Skeleton className="h-16 w-full rounded-2xl" />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* WhatsApp Toggle */}
+            <label className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-200/70 hover:border-emerald-300 transition-all cursor-pointer">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100/70 text-emerald-700 flex items-center justify-center">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    WhatsApp Updates
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Instant queue token updates and appointment confirmation cards
+                  </p>
+                </div>
+              </div>
+
+              <input
+                type="checkbox"
+                checked={whatsappEnabled}
+                onChange={(e) => setWhatsappEnabled(e.target.checked)}
+                className="w-5 h-5 text-emerald-600 rounded-md focus:ring-emerald-500 border-slate-300 cursor-pointer accent-emerald-600"
+              />
+            </label>
+
+            {/* SMS Toggle */}
+            <label className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-200/70 hover:border-emerald-300 transition-all cursor-pointer">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-teal-100/70 text-teal-700 flex items-center justify-center">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    SMS Text Alerts
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Direct SMS messages for time-sensitive queue calls and slot changes
+                  </p>
+                </div>
+              </div>
+
+              <input
+                type="checkbox"
+                checked={smsEnabled}
+                onChange={(e) => setSmsEnabled(e.target.checked)}
+                className="w-5 h-5 text-emerald-600 rounded-md focus:ring-emerald-500 border-slate-300 cursor-pointer accent-emerald-600"
+              />
+            </label>
+
+            {/* Email Toggle */}
+            <label className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-200/70 hover:border-emerald-300 transition-all cursor-pointer">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    Email Invoices & Receipts
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Detailed PDF receipts, cancellation summaries, and calendar files
+                  </p>
+                </div>
+              </div>
+
+              <input
+                type="checkbox"
+                checked={emailEnabled}
+                onChange={(e) => setEmailEnabled(e.target.checked)}
+                className="w-5 h-5 text-emerald-600 rounded-md focus:ring-emerald-500 border-slate-300 cursor-pointer accent-emerald-600"
+              />
+            </label>
+
+            {/* In-App Notifications */}
+            <label className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-200/70 hover:border-emerald-300 transition-all cursor-pointer">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    In-App Push Badges
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Live notification bell counter and browser sound alerts
+                  </p>
+                </div>
+              </div>
+
+              <input
+                type="checkbox"
+                checked={inAppEnabled}
+                onChange={(e) => setInAppEnabled(e.target.checked)}
+                className="w-5 h-5 text-emerald-600 rounded-md focus:ring-emerald-500 border-slate-300 cursor-pointer accent-emerald-600"
+              />
+            </label>
+          </div>
+        )}
+
+        <div className="pt-4 border-t border-slate-100 flex justify-end">
+          <Button
+            onClick={handleSave}
+            disabled={updateMutation.isPending}
+            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl"
+          >
+            <Save className="w-4 h-4" />
+            {updateMutation.isPending ? "Saving..." : "Save Preferences"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Security & Privacy Card */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+            <Shield className="w-5 h-5" />
+          </div>
           <div>
-            <h2 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
-              Notification Channels
-            </h2>
-            <p className="text-xs text-neutral-500 mt-0.5">
-              Select which channels we should use to keep you notified
+            <h3 className="text-base font-bold text-slate-900">
+              Customer Data Protection
+            </h3>
+            <p className="text-xs text-slate-500">
+              Your contact details are encrypted and isolated per salon booking
             </p>
           </div>
+        </div>
 
-          {isLoading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-14 w-full rounded-xl" />
-              <Skeleton className="h-14 w-full rounded-xl" />
-              <Skeleton className="h-14 w-full rounded-xl" />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* WhatsApp Toggle */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
-                    <MessageSquare className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                      WhatsApp Alerts
-                    </h4>
-                    <p className="text-xs text-neutral-500">
-                      Instant queue token updates and booking confirmations directly on WhatsApp
-                    </p>
-                  </div>
-                </div>
-
-                <input
-                  type="checkbox"
-                  checked={whatsappEnabled}
-                  onChange={(e) => setWhatsappEnabled(e.target.checked)}
-                  className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-neutral-300 dark:border-neutral-700 cursor-pointer"
-                />
-              </div>
-
-              {/* SMS Toggle */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 flex items-center justify-center">
-                    <Smartphone className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                      SMS Messages
-                    </h4>
-                    <p className="text-xs text-neutral-500">
-                      Critical appointment reminders and verification codes via text SMS
-                    </p>
-                  </div>
-                </div>
-
-                <input
-                  type="checkbox"
-                  checked={smsEnabled}
-                  onChange={(e) => setSmsEnabled(e.target.checked)}
-                  className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-neutral-300 dark:border-neutral-700 cursor-pointer"
-                />
-              </div>
-
-              {/* Email Toggle */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center">
-                    <Mail className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                      Email Invoices & Updates
-                    </h4>
-                    <p className="text-xs text-neutral-500">
-                      Detailed itemized receipts, cancellation notices, and calendar invites
-                    </p>
-                  </div>
-                </div>
-
-                <input
-                  type="checkbox"
-                  checked={emailEnabled}
-                  onChange={(e) => setEmailEnabled(e.target.checked)}
-                  className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-neutral-300 dark:border-neutral-700 cursor-pointer"
-                />
-              </div>
-
-              {/* In-App Notifications */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-violet-50 dark:bg-violet-950/60 text-violet-600 flex items-center justify-center">
-                    <Bell className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                      In-App Notifications
-                    </h4>
-                    <p className="text-xs text-neutral-500">
-                      Push notifications and real-time alerts inside your customer portal
-                    </p>
-                  </div>
-                </div>
-
-                <input
-                  type="checkbox"
-                  checked={inAppEnabled}
-                  onChange={(e) => setInAppEnabled(e.target.checked)}
-                  className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-neutral-300 dark:border-neutral-700 cursor-pointer"
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 flex justify-end">
-            <Button
-              onClick={handleSave}
-              disabled={updateMutation.isPending}
-              className="gap-2"
-            >
-              <Save className="w-4 h-4" />
-              {updateMutation.isPending ? "Saving..." : "Save Preferences"}
-            </Button>
-          </div>
-        </Card>
-
-        {/* Security & Privacy Card */}
-        <Card className="p-6 sm:p-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
-              <Shield className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
-                Privacy & Data Security
-              </h3>
-              <p className="text-xs text-neutral-500">
-                Your data is protected under end-to-end multi-tenant security architecture
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-2 text-xs text-neutral-600 dark:text-neutral-400">
-            <p>• Your personal contact information is only shared with salons you actively book with.</p>
-            <p>• Payment details are processed directly through Razorpay and never stored on our servers.</p>
-            <p>• You can update or delete your appointments and queue records at any time.</p>
-          </div>
-        </Card>
+        <div className="space-y-2 text-xs text-slate-600">
+          <p className="flex items-center gap-2">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>Personal contact numbers are never sold or used for spam.</span>
+          </p>
+          <p className="flex items-center gap-2">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>Payments are processed with 256-bit PCI-DSS compliant gateways.</span>
+          </p>
+          <p className="flex items-center gap-2">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>You can disable non-essential alerts at any time above.</span>
+          </p>
+        </div>
       </div>
-    </CustomerLayout>
+    </div>
   );
 }

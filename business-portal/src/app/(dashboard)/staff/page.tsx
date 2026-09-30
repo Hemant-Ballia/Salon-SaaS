@@ -24,7 +24,8 @@ import {
   Power, 
   Mail, 
   Briefcase,
-  ChevronRight
+  ChevronRight,
+  DollarSign
 } from "lucide-react";
 
 export default function StaffPage() {
@@ -248,6 +249,12 @@ export default function StaffPage() {
                           >
                             <Power className="w-4 h-4" />
                           </Button>
+                          <Link href={`/staff/${member.id}/compensation`}>
+                            <Button variant="outline" size="sm" className="gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                              <DollarSign className="w-3.5 h-3.5" />
+                              Compensation
+                            </Button>
+                          </Link>
                           <Link href={`/staff/${member.id}`}>
                             <Button variant="outline" size="sm" className="gap-1.5">
                               <Calendar className="w-3.5 h-3.5" />

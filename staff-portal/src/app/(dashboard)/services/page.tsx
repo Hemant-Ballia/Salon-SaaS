@@ -31,30 +31,29 @@ export default function StaffServicesPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-black tracking-tight text-slate-900">
-          Services Catalog
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          Services
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Explore treatments, duration, and prices available for your clients.
+        <p className="text-sm text-slate-500 mt-0.5">
+          Treatment catalog — durations, pricing, and active status for client bookings.
         </p>
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search service name, category, or description..."
-          />
-        </CardContent>
-      </Card>
+      {/* Search Bar */}
+      <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search service name, category, or description..."
+        />
+      </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-40 rounded-2xl" />
+        <div className="space-y-2.5">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-14 rounded-xl" />
           ))}
         </div>
       ) : error ? (
@@ -74,39 +73,78 @@ export default function StaffServicesPage() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((svc) => (
-            <Card key={svc.id} className="hover:border-emerald-300 hover:shadow-sm transition-all flex flex-col justify-between">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                    <Tag className="w-3 h-3 text-slate-400" />
-                    {svc.category || "General"}
-                  </span>
-                  <Badge variant={svc.isActive ? "success" : "neutral"}>
+        <div className="space-y-4">
+          {/* Desktop Table View */}
+          <div className="hidden md:block rounded-2xl bg-white border border-slate-200/80 overflow-hidden shadow-xs">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                <tr>
+                  <th className="py-3 px-4">Service Name</th>
+                  <th className="py-3 px-4">Category</th>
+                  <th className="py-3 px-4">Duration</th>
+                  <th className="py-3 px-4">Price</th>
+                  <th className="py-3 px-4 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.map((svc) => (
+                  <tr key={svc.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="py-3 px-4">
+                      <p className="font-semibold text-slate-900">{svc.name}</p>
+                      {svc.description && (
+                        <p className="text-[11px] text-slate-400 truncate max-w-sm">{svc.description}</p>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-slate-600">
+                      {svc.category || "General"}
+                    </td>
+                    <td className="py-3 px-4 font-medium text-slate-700 whitespace-nowrap">
+                      {formatDuration(svc.durationMinutes)}
+                    </td>
+                    <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">
+                      {formatCurrency(svc.price)}
+                    </td>
+                    <td className="py-3 px-4 text-right whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                        svc.isActive
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-slate-100 text-slate-600"
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${svc.isActive ? "bg-emerald-500" : "bg-slate-400"}`} />
+                        {svc.isActive ? "Active" : "Paused"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden divide-y divide-slate-100 rounded-2xl bg-white border border-slate-200/80 overflow-hidden shadow-xs">
+            {filtered.map((svc) => (
+              <div key={svc.id} className="p-4 space-y-2 text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-bold text-slate-900 text-sm">{svc.name}</p>
+                    <p className="text-slate-400 text-[11px]">{svc.category || "General"}</p>
+                  </div>
+                  <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                    svc.isActive
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-slate-100 text-slate-600"
+                  }`}>
                     {svc.isActive ? "Active" : "Paused"}
-                  </Badge>
+                  </span>
                 </div>
 
-                <h3 className="font-extrabold text-slate-900 text-base line-clamp-1 mb-1">
-                  {svc.name}
-                </h3>
-                <p className="text-xs text-slate-500 line-clamp-2 min-h-8 mb-4">
-                  {svc.description || "Specialist treatment provided at salon."}
-                </p>
-
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
-                  <div className="flex items-center gap-1.5 text-slate-600 font-semibold">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    {formatDuration(svc.durationMinutes)}
-                  </div>
-                  <div className="text-base font-black text-emerald-700">
-                    {formatCurrency(svc.price)}
-                  </div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span className="text-slate-500">{formatDuration(svc.durationMinutes)}</span>
+                  <span className="font-bold text-slate-900 text-sm">{formatCurrency(svc.price)}</span>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

@@ -1,14 +1,13 @@
 "use client";
 
-import { getErrorMessage } from "@/lib/api/client";
-
 import React, { useState } from "react";
+import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/context/auth-context";
-import { ShieldCheck, Lock, Mail, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { getErrorMessage } from "@/lib/api/client";
+import { Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const loginSchema = z.object({
@@ -21,6 +20,8 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const { login } = useAuth();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   const {
     register,
@@ -29,8 +30,8 @@ export default function LoginPage() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
-      password: "",
+      email: "admin@salonsaas.dev",
+      password: "Password@123",
     },
   });
 
@@ -40,95 +41,170 @@ export default function LoginPage() {
       await login(data);
       toast.success("Welcome back, Administrator!");
     } catch (err: unknown) {
-      const message = getErrorMessage(err) || "Failed to authenticate. Please check your credentials.";
+      const message =
+        getErrorMessage(err) || "Failed to authenticate. Please check your credentials.";
       setServerError(message);
       toast.error(message);
     }
   };
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-md">
-        {/* Brand Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md shadow-emerald-600/20 mb-3">
-            <ShieldCheck className="h-7 w-7" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">SalonSaaS Admin</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Enterprise administration & multi-tenant control
-          </p>
+    <div className="min-h-screen w-full flex bg-white font-sans antialiased text-zinc-900 selection:bg-zinc-900 selection:text-white">
+      {/* LEFT PANEL: Architectural Visual (50% desktop, reduces on tablet, hidden on mobile) */}
+      <div className="hidden md:relative md:flex md:w-[45%] lg:w-1/2 flex-col justify-between p-10 lg:p-14 xl:p-16 bg-zinc-950 overflow-hidden select-none shrink-0">
+        <Image
+          src="/images/salon-admin-visual.jpg"
+          alt="Modern luxury salon workspace"
+          fill
+          priority
+          sizes="(max-width: 1024px) 45vw, 50vw"
+          className="object-cover object-center"
+        />
+        {/* Subtle, restrained scrim to ensure text legibility while letting photography shine */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-black/35 pointer-events-none" />
+
+        {/* Top Brand Mark */}
+        <div className="relative z-10">
+          <span className="text-[15px] font-semibold tracking-[-0.01em] text-white drop-shadow-sm">
+            SalonSaaS
+          </span>
         </div>
 
-        {/* Login Card */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-8 shadow-sm">
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold text-slate-900">Sign in to your account</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Only authenticated users with the <span className="font-semibold text-emerald-700">ADMIN</span> role can enter.
+        {/* Bottom Minimal Supporting Text */}
+        <div className="relative z-10 max-w-sm pb-2">
+          <p className="text-[13px] font-normal text-white/80 leading-relaxed tracking-normal drop-shadow-sm">
+            Manage your salon from one place.
+          </p>
+        </div>
+      </div>
+
+      {/* RIGHT PANEL: Focused Production Authentication Interface */}
+      <div className="w-full md:w-[55%] lg:w-1/2 flex flex-col justify-between min-h-screen px-6 py-8 sm:px-10 sm:py-12 md:px-12 md:py-14 lg:px-16 xl:px-24 bg-white">
+        {/* Top Header - Mobile Brand Mark */}
+        <div className="w-full max-w-sm mx-auto flex items-center md:hidden pt-2 pb-4">
+          <span className="text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">
+            SalonSaaS
+          </span>
+        </div>
+
+        {/* Form Container */}
+        <div className="w-full max-w-sm mx-auto my-auto py-6">
+          <div className="space-y-1 mb-8">
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+              Welcome back
+            </h1>
+            <p className="text-sm text-zinc-500 font-normal">
+              Sign in to your admin account.
             </p>
           </div>
 
           {serverError && (
-            <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-rose-200 bg-rose-50/80 p-3 text-xs text-rose-700">
-              <AlertCircle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
-              <span>{serverError}</span>
+            <div
+              role="alert"
+              className="mb-6 rounded-md bg-red-50 border border-red-200/80 p-3 text-xs text-red-800 flex items-start gap-2.5"
+            >
+              <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+              <span className="leading-relaxed">{serverError}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
-                Admin Email
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
+            {/* Email Field */}
+            <div className="space-y-1.5">
+              <label
+                htmlFor="email"
+                className="block text-xs font-medium text-zinc-700"
+              >
+                Email address
               </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                <input
-                  type="email"
-                  autoComplete="email"
-                  placeholder="admin@salonsaas.dev"
-                  {...register("email")}
-                  className="h-10 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
-                />
-              </div>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="admin@salonsaas.dev"
+                aria-invalid={errors.email ? "true" : "false"}
+                {...register("email")}
+                className={`w-full h-10 px-3 rounded-md border text-sm text-zinc-900 placeholder:text-zinc-400 bg-white transition-colors focus:outline-none focus:ring-1 ${
+                  errors.email
+                    ? "border-red-400 focus:border-red-500 focus:ring-red-500"
+                    : "border-zinc-300 focus:border-zinc-900 focus:ring-zinc-900 hover:border-zinc-400"
+                }`}
+              />
               {errors.email && (
-                <p className="text-xs text-rose-600 mt-1">{errors.email.message}</p>
+                <p className="text-xs text-red-600 mt-1">{errors.email.message}</p>
               )}
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
+            {/* Password Field */}
+            <div className="space-y-1.5">
+              <label
+                htmlFor="password"
+                className="block text-xs font-medium text-zinc-700"
+              >
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <input
-                  type="password"
+                  id="password"
+                  type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
-                  placeholder="â¢â¢â¢â¢â¢â¢â¢â¢"
+                  placeholder="••••••••••••"
+                  aria-invalid={errors.password ? "true" : "false"}
                   {...register("password")}
-                  className="h-10 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+                  className={`w-full h-10 pl-3 pr-10 rounded-md border text-sm text-zinc-900 placeholder:text-zinc-400 bg-white transition-colors focus:outline-none focus:ring-1 ${
+                    errors.password
+                      ? "border-red-400 focus:border-red-500 focus:ring-red-500"
+                      : "border-zinc-300 focus:border-zinc-900 focus:ring-zinc-900 hover:border-zinc-400"
+                  }`}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 focus:outline-none transition-colors p-1 cursor-pointer"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
               {errors.password && (
-                <p className="text-xs text-rose-600 mt-1">{errors.password.message}</p>
+                <p className="text-xs text-red-600 mt-1">{errors.password.message}</p>
               )}
             </div>
 
-            <Button
+            {/* Remember Me */}
+            <div className="flex items-center justify-between pt-0.5">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer accent-zinc-900"
+                />
+                <span className="text-xs text-zinc-600">Remember me</span>
+              </label>
+            </div>
+
+            {/* Sign in Button */}
+            <button
               type="submit"
-              isLoading={isSubmitting}
-              className="w-full h-10 mt-2 font-medium"
+              disabled={isSubmitting}
+              className="w-full h-10 rounded-md bg-zinc-900 hover:bg-zinc-800 active:bg-black text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2"
             >
-              Sign In to Console
-            </Button>
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin text-white" />
+              ) : (
+                "Sign in"
+              )}
+            </button>
           </form>
         </div>
 
-        {/* Security Notice */}
-        <p className="text-center text-xs text-slate-400 mt-6">
-          Protected by role-based access control & JWT encryption.
-        </p>
+        {/* Bottom Spacer */}
+        <div className="w-full max-w-sm mx-auto pt-4" />
       </div>
     </div>
   );

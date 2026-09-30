@@ -26,6 +26,7 @@ const lngField = z.coerce
 
 export const createBusinessSchema = z.object({
   name: z.string().min(2).max(150).trim(),
+  ownerName: z.string().min(2).max(100).trim().optional().nullable(),
   businessType: z.enum(["SALON", "BEAUTY_PARLOUR", "BARBER", "CAR_WASH", "OTHER"]).default("OTHER"),
   description: z.string().max(1000).trim().optional().nullable(),
   email: z.string().email().toLowerCase().trim().optional().nullable(),

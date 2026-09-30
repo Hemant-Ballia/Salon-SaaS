@@ -40,6 +40,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const pathname = usePathname();
 
   const fetchStaffProfile = async (currentUser: User) => {
+    if (currentUser.staffProfile) {
+      setStaff(currentUser.staffProfile);
+      return;
+    }
     try {
       const list = await getStaffListApi();
       const matched = list.find(
@@ -68,15 +72,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.removeItem("staff_access_token");
           setToken(null);
           setUser(null);
+          setStaff(null);
           setIsLoading(false);
           return;
         }
         setUser(me);
-        await fetchStaffProfile(me);
+        if (me.staffProfile) {
+          setStaff(me.staffProfile);
+        } else {
+          await fetchStaffProfile(me);
+        }
       } catch {
         localStorage.removeItem("staff_access_token");
         setToken(null);
         setUser(null);
+        setStaff(null);
       } finally {
         setIsLoading(false);
       }
@@ -95,7 +105,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(result.accessToken);
     setUser(result.user);
 
-    await fetchStaffProfile(result.user);
+    if (result.user.staffProfile) {
+      setStaff(result.user.staffProfile);
+    } else {
+      await fetchStaffProfile(result.user);
+    }
     router.replace("/dashboard");
   };
 

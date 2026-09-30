@@ -163,7 +163,7 @@ export default function UserDetailPage() {
               <div>
                 <div className="text-xs text-slate-500">Authentication Protocol</div>
                 <div className="text-xs font-mono text-slate-600 mt-1">
-                  Bcrypt Password Hash (Never Exposed) * JWT Session
+                  Bcrypt Password Hash (Never Exposed) &bull; JWT Session
                 </div>
               </div>
             </CardContent>

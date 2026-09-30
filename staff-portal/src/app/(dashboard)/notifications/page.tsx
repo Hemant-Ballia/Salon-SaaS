@@ -73,9 +73,9 @@ export default function StaffNotificationsPage() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-2xl" />
+            <Skeleton key={i} className="h-16 w-full rounded-xl" />
           ))}
         </div>
       ) : error ? (
@@ -88,32 +88,37 @@ export default function StaffNotificationsPage() {
         <EmptyState
           icon={Bell}
           title="All caught up!"
-          description="You have no unread notifications or new messages."
+          description="You have no notifications or workspace alerts."
         />
       ) : (
-        <div className="space-y-2.5">
+        <div className="divide-y divide-slate-100 rounded-2xl bg-white border border-slate-200/80 overflow-hidden shadow-xs">
           {notifications.map((n) => (
             <div
               key={n.id}
-              className={`p-4 sm:p-5 rounded-2xl border transition-all flex items-start justify-between gap-4 ${
-                n.isRead
-                  ? "bg-white border-slate-200 text-slate-600"
-                  : "bg-emerald-50/40 border-emerald-300 text-slate-900 shadow-xs"
+              className={`p-4 transition-colors flex items-start justify-between gap-4 text-xs ${
+                n.isRead ? "hover:bg-slate-50/50" : "bg-emerald-50/30 hover:bg-emerald-50/50"
               }`}
             >
-              <div className="flex items-start gap-3.5">
+              <div className="flex items-start gap-3 min-w-0">
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
                     n.isRead ? "bg-slate-100 text-slate-500" : "bg-emerald-100 text-emerald-700"
                   }`}
                 >
-                  <Bell className="w-4 h-4" />
+                  <Bell className="w-3.5 h-3.5" />
                 </div>
-                <div>
-                  <h4 className="font-bold text-sm">{n.title}</h4>
-                  <p className="text-xs text-slate-600 mt-0.5">{n.message}</p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className={`text-xs truncate ${n.isRead ? "font-semibold text-slate-800" : "font-bold text-slate-900"}`}>
+                      {n.title}
+                    </h4>
+                    {!n.isRead && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    )}
+                  </div>
+                  <p className="text-slate-500 mt-0.5 leading-relaxed">{n.message}</p>
                   <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
+                    <Clock className="w-3 h-3 text-slate-400" />
                     {formatDate(n.createdAt)}
                   </p>
                 </div>
@@ -124,7 +129,7 @@ export default function StaffNotificationsPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => markReadMutation.mutate(n.id)}
-                  className="text-xs text-emerald-700 hover:bg-emerald-100/50 font-bold h-7 px-2"
+                  className="text-xs text-emerald-700 hover:bg-emerald-100/50 font-medium h-7 px-2 shrink-0"
                 >
                   Mark read
                 </Button>

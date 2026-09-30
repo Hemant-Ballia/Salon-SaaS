@@ -17,6 +17,7 @@ export interface User {
   isActive: boolean;
   isEmailVerified?: boolean;
   isPhoneVerified?: boolean;
+  mustChangePassword?: boolean;
   lastLoginAt?: string | null;
   createdAt: string;
   updatedAt?: string;
@@ -186,3 +187,98 @@ export interface DashboardMetrics {
   appointments: number;
   revenue: number;
 }
+
+export interface AdminOverviewMetrics {
+  totalUsers: number;
+  totalBusinesses: number;
+  activeBusinesses: number;
+  inactiveBusinesses: number;
+  totalCustomers: number;
+  totalStaff: number;
+  activeStaff: number;
+  totalAppointments: number;
+  completedAppointments: number;
+  totalRevenue: number;
+  totalSubscriptions: number;
+  activeSubscriptions: number;
+}
+
+export interface AdminPeriodMetrics {
+  period: "7D" | "30D" | "3M" | "12M";
+  newBusinesses: number;
+  businessesChange: string;
+  newCustomers: number;
+  customersChange: string;
+  appointments: number;
+  appointmentsChange: string;
+  revenue: number;
+  revenueChange: string;
+}
+
+export interface AdminChartDataPoint {
+  date: string;
+  label: string;
+  appointments: number;
+  revenue: number;
+}
+
+export interface AdminBusinessDistribution {
+  byStatus: { status: string; count: number }[];
+  byType: { type: string; count: number }[];
+}
+
+export interface AdminRecentBusiness {
+  id: string;
+  name: string;
+  slug: string;
+  businessType: BusinessType;
+  status: BusinessStatus;
+  createdAt: string;
+  owner?: { id: string; name: string; email: string; phone?: string | null };
+  counts?: { staff: number; services: number; appointments: number };
+}
+
+export interface AdminRecentAppointment {
+  id: string;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  status: AppointmentStatus;
+  totalAmount: number;
+  business?: { id: string; name: string; slug: string; businessType: BusinessType };
+  customer?: { id: string; user?: { id: string; name: string; email: string; phone?: string | null } };
+  staff?: { id: string; displayName: string; designation?: string | null };
+  service?: { id: string; name: string; category?: string | null } | null;
+}
+
+export interface AdminPaymentsSummary {
+  totalVolume: number;
+  totalCount: number;
+  paidVolume: number;
+  paidCount: number;
+  pendingVolume: number;
+  pendingCount: number;
+  failedVolume: number;
+  failedCount: number;
+  refundedVolume: number;
+  refundedCount: number;
+}
+
+export interface AdminSubscriptionsSummary {
+  total: number;
+  active: number;
+  byPlan: { plan: string; count: number }[];
+}
+
+export interface AdminDashboardData {
+  overview: AdminOverviewMetrics;
+  periodMetrics: AdminPeriodMetrics;
+  chartData: AdminChartDataPoint[];
+  businessDistribution: AdminBusinessDistribution;
+  recentBusinesses: AdminRecentBusiness[];
+  recentAppointments: AdminRecentAppointment[];
+  paymentsSummary: AdminPaymentsSummary;
+  subscriptionsSummary: AdminSubscriptionsSummary;
+  recentActivity: AuditLog[];
+}
+

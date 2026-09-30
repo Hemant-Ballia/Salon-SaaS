@@ -26,6 +26,7 @@ export interface User {
   isActive: boolean;
   isEmailVerified?: boolean;
   isPhoneVerified?: boolean;
+  mustChangePassword?: boolean;
   createdAt: string;
 }
 
@@ -256,8 +257,253 @@ export interface BusinessDashboardStats {
   totalServices: number;
   totalAppointments: number;
   todayAppointments: number;
+  yesterdayAppointments?: number;
+  todayBookingsChange?: string;
   pendingAppointments: number;
   activeQueueCount: number;
   totalRevenue: number;
   todayRevenue: number;
+  yesterdayRevenue?: number;
+  todayRevenueChange?: string;
+  activeStaff?: number;
+  activeStaffChange?: string;
+  activeCustomers?: number;
+  activeCustomersChange?: string;
+  servicesCompleted?: number;
+  servicesCompletedYesterday?: number;
+  servicesCompletedChange?: string;
+  totalCustomers?: number;
+  bookingsSparkline?: number[];
+  revenueSparkline?: number[];
+  customersSparkline?: number[];
+  completedSparkline?: number[];
+}
+
+export interface ChartDataPoint {
+  date: string;
+  fullDate?: string;
+  bookings: number;
+  revenue: number;
+}
+
+export interface StatusBreakdownItem {
+  status: string;
+  label: string;
+  count: number;
+  percentage: number;
+  color: string;
+}
+
+export interface ServicePopularityItem {
+  name: string;
+  count: number;
+  percentage: number;
+  color: string;
+}
+
+export interface TopServiceItem {
+  id: string;
+  name: string;
+  category?: string;
+  bookingsCount: number;
+  percentage: number;
+  price: number;
+  imageUrl?: string | null;
+}
+
+export interface ActivityEvent {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  createdAt: string;
+  iconType: "appointment" | "payment" | "notification" | "staff" | "feedback";
+}
+
+export interface BusinessDashboardData {
+  business: Business;
+  stats: BusinessDashboardStats;
+  chartData: ChartDataPoint[];
+  statusBreakdown: StatusBreakdownItem[];
+  servicePopularity: ServicePopularityItem[];
+  topServices: TopServiceItem[];
+  recentAppointments: Appointment[];
+  recentActivity: ActivityEvent[];
+  qrCode?: {
+    id?: string;
+    token?: string;
+    targetUrl?: string;
+    qrImageUrl?: string | null;
+    scanCount?: number;
+  } | null;
+  subscription?: {
+    id?: string;
+    plan: SubscriptionPlan;
+    status: SubscriptionStatus;
+    startDate?: string;
+    endDate?: string | null;
+    renewalDate?: string | null;
+  } | null;
+}
+
+// ── Staff Compensation, Commission & Incentive Models ─────────────────────────
+
+export type CompensationType =
+  | "SALARY"
+  | "COMMISSION"
+  | "SALARY_COMMISSION"
+  | "SALARY_INCENTIVE"
+  | "SALARY_COMMISSION_INCENTIVE"
+  | "COMMISSION_INCENTIVE"
+  | "INCENTIVE";
+
+export type CommissionType = "PERCENTAGE" | "FIXED";
+
+export type CommissionBasis =
+  | "COMPLETED"
+  | "PAID"
+  | "COMPLETED_AND_PAID"
+  | "SERVICE_SUBTOTAL"
+  | "NET_AFTER_DISCOUNT";
+
+export type IncentiveMetric = "APPOINTMENT_COUNT" | "TOTAL_REVENUE" | "SERVICE_COUNT";
+
+export type IncentivePeriod = "WEEKLY" | "MONTHLY" | "CUSTOM";
+
+export type LedgerEntryType = "COMMISSION" | "INCENTIVE" | "SALARY" | "REVERSAL" | "ADJUSTMENT";
+
+export type LedgerStatus = "PENDING" | "APPROVED" | "PAID" | "VOID";
+
+export interface StaffCompensation {
+  id: string;
+  businessId: string;
+  staffId: string;
+  compensationType: CompensationType;
+  monthlySalary?: string | number | null;
+  payFrequency?: string | null;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommissionRule {
+  id: string;
+  businessId: string;
+  staffId?: string | null;
+  type: CommissionType;
+  percentage?: string | number | null;
+  fixedAmount?: string | number | null;
+  calculationBasis: CommissionBasis;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  staff?: { id: string; displayName: string };
+  services?: Array<{ service: { id: string; name: string; price: string | number } }>;
+}
+
+export interface IncentiveProgress {
+  current: string;
+  target: string;
+  percentage: number;
+  isAchieved: boolean;
+  periodStart: string;
+  periodEnd: string;
+}
+
+export interface IncentiveRule {
+  id: string;
+  businessId: string;
+  staffId?: string | null;
+  name: string;
+  metric: IncentiveMetric;
+  target: string | number;
+  rewardType: string;
+  rewardAmount: string | number;
+  period: IncentivePeriod;
+  startDate: string;
+  endDate?: string | null;
+  serviceId?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  staff?: { id: string; displayName: string } | null;
+  service?: { id: string; name: string } | null;
+  progress?: IncentiveProgress;
+}
+
+export interface StaffServicePrice {
+  id: string;
+  businessId: string;
+  staffId: string;
+  serviceId: string;
+  price: string | number;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  isActive: boolean;
+  staff?: { id: string; displayName: string; designation?: string };
+  service?: { id: string; name: string; price: string | number };
+}
+
+export interface CompensationLedger {
+  id: string;
+  businessId?: string;
+  staffId: string;
+  appointmentId?: string | null;
+  serviceId?: string | null;
+  type: LedgerEntryType;
+  amount: string | number;
+  calculationSnapshot: Record<string, any>;
+  notes?: string | null;
+  status: LedgerStatus;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  serviceName?: string;
+  customerName?: string;
+  createdAt: string;
+}
+
+export interface StaffEarningsSummary {
+  staffId: string;
+  displayName: string;
+  compensationType: CompensationType | "UNCONFIGURED";
+  baseSalary: string;
+  totalCommission: string;
+  totalIncentives: string;
+  totalReversals: string;
+  totalPeriodEarnings: string;
+  periodStart: string;
+  periodEnd: string;
+  incentiveProgress: Array<{
+    id: string;
+    name: string;
+    metric: IncentiveMetric;
+    target: string;
+    rewardAmount: string;
+    period: IncentivePeriod;
+    progress: IncentiveProgress;
+  }>;
+  ledgerEntries: CompensationLedger[];
+}
+
+export interface BusinessPayrollSummary {
+  month: string;
+  totalStaffCost: string;
+  totalCommission: string;
+  totalIncentives: string;
+  totalReversals: string;
+  pendingIncentives: string;
+  estimatedPayroll: string;
+  staffCount: number;
+  staffBreakdown: Array<{
+    staffId: string;
+    name: string;
+    designation?: string;
+    compensationType: string;
+    salary: string;
+    commissionEarned: string;
+    incentivesEarned: string;
+    totalPeriodEarnings: string;
+  }>;
 }

@@ -18,6 +18,7 @@ interface AuthContextType {
   registerBusiness: (input: RegisterBusinessInput) => Promise<void>;
   logout: () => Promise<void>;
   refreshBusiness: () => Promise<void>;
+  reloadUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,6 +30,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+
+  const reloadUser = useCallback(async () => {
+    try {
+      const currentUser = await getMeApi();
+      setUser(currentUser);
+      localStorage.setItem("biz_user", JSON.stringify(currentUser));
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const refreshBusiness = useCallback(async () => {
     try {
@@ -89,8 +100,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!user && !isPublic) {
       router.replace("/login");
-    } else if (user && isPublic) {
-      router.replace("/dashboard");
+    } else if (user) {
+      if (user.mustChangePassword && pathname !== "/change-password") {
+        router.replace("/change-password");
+      } else if (!user.mustChangePassword && (isPublic || pathname === "/change-password")) {
+        router.replace("/dashboard");
+      }
     }
   }, [user, isLoading, pathname, router]);
 
@@ -114,7 +129,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem("biz_current", JSON.stringify(biz));
       }
 
-      router.replace("/dashboard");
+      if (data.user.mustChangePassword) {
+        router.replace("/change-password");
+      } else {
+        router.replace("/dashboard");
+      }
     } catch (err: unknown) {
       throw new Error(getErrorMessage(err));
     } finally {
@@ -173,6 +192,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         registerBusiness,
         logout,
         refreshBusiness,
+        reloadUser,
       }}
     >
       {children}

@@ -17,10 +17,11 @@ import {
   Sparkles,
   KeyRound,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Sliders,
+  ChevronRight
 } from "lucide-react";
 import { toast } from "sonner";
-import { CustomerLayout } from "@/components/layout/customer-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,201 +75,209 @@ export default function ProfilePage() {
 
   if (authLoading) {
     return (
-      <CustomerLayout>
-        <div className="max-w-2xl mx-auto space-y-4">
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-40 w-full rounded-2xl" />
-          <Skeleton className="h-64 w-full rounded-2xl" />
-        </div>
-      </CustomerLayout>
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-4">
+        <Skeleton className="h-10 w-48 rounded-xl" />
+        <Skeleton className="h-40 w-full rounded-2xl" />
+        <Skeleton className="h-64 w-full rounded-2xl" />
+      </div>
     );
   }
 
   if (!isAuthenticated || !user) {
     return (
-      <CustomerLayout>
-        <div className="max-w-md mx-auto py-16 text-center">
-          <Card className="p-8">
-            <User className="w-12 h-12 text-indigo-600 mx-auto mb-3" />
-            <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
-              Sign In to View Profile
-            </h2>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6">
-              Access your personal account, saved appointments, and security settings.
-            </p>
-            <Link href="/login?redirect=/profile">
-              <Button className="w-full">Sign In to Continue</Button>
-            </Link>
-          </Card>
+      <div className="max-w-md mx-auto px-4 py-20 text-center">
+        <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs">
+          <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-emerald-600">
+            <User className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">
+            Sign In to View Profile
+          </h2>
+          <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+            Access your personal account, saved appointments, and account credentials.
+          </p>
+          <Link href="/login?redirect=/profile">
+            <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl shadow-xs">
+              Sign In to Continue
+            </Button>
+          </Link>
         </div>
-      </CustomerLayout>
+      </div>
     );
   }
 
   return (
-    <CustomerLayout>
-      <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold mb-2">
+            <User className="w-3.5 h-3.5" />
+            Account Overview
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            My Profile
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Manage your personal profile and account credentials
+          </p>
+        </div>
+
+        <Button
+          variant="ghost"
+          onClick={() => setIsLogoutDialogOpen(true)}
+          className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 gap-2 text-xs font-semibold rounded-xl"
+        >
+          <LogOut className="w-4 h-4" />
+          Sign Out
+        </Button>
+      </div>
+
+      {/* User Card */}
+      <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-2xs">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-xl shadow-2xs">
+            {user.name?.charAt(0).toUpperCase() || "C"}
+          </div>
+
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">
-              My Profile
-            </h1>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-              Manage your personal credentials and security preferences
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-extrabold text-slate-900">
+                {user.name}
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Verified Customer
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5 font-mono">
+              Member Ref: {user.id.slice(0, 12)}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6 pt-6 border-t border-slate-100">
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
+            <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+              <Mail className="w-3.5 h-3.5 text-emerald-600" />
+              Email Address
+            </span>
+            <p className="text-sm font-bold text-slate-900 truncate">
+              {user.email}
             </p>
           </div>
 
-          <Button
-            variant="ghost"
-            onClick={() => setIsLogoutDialogOpen(true)}
-            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 gap-2 text-xs"
-          >
-            <LogOut className="w-4 h-4" />
-            Sign Out
-          </Button>
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
+            <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+              <Phone className="w-3.5 h-3.5 text-emerald-600" />
+              Phone Number
+            </span>
+            <p className="text-sm font-bold text-slate-900">
+              {user.phone || "Not provided"}
+            </p>
+          </div>
         </div>
-
-        {/* User Card */}
-        <Card className="p-6 sm:p-8">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white font-extrabold text-2xl shadow-md">
-              {user.name?.charAt(0).toUpperCase() || "U"}
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
-                  {user.name}
-                </h2>
-                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
-                  Customer
-                </span>
-              </div>
-              <p className="text-xs text-neutral-500 mt-0.5">
-                Member ID: <span className="font-mono">{user.id}</span>
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-6 border-t border-neutral-100 dark:border-neutral-800">
-            <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800">
-              <span className="text-xs text-neutral-500 flex items-center gap-1.5 mb-1">
-                <Mail className="w-3.5 h-3.5 text-neutral-400" />
-                Email Address
-              </span>
-              <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                {user.email}
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800">
-              <span className="text-xs text-neutral-500 flex items-center gap-1.5 mb-1">
-                <Phone className="w-3.5 h-3.5 text-neutral-400" />
-                Phone Number
-              </span>
-              <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                {user.phone || "Not provided"}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        {/* Change Password Card */}
-        <Card className="p-6 sm:p-8">
-          <div className="flex items-center gap-2.5 mb-6">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 flex items-center justify-center">
-              <KeyRound className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
-                Change Password
-              </h3>
-              <p className="text-xs text-neutral-500">
-                Ensure your account remains safe with a strong password
-              </p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit(onPasswordSubmit)} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
-                Current Password
-              </label>
-              <input
-                type="password"
-                {...register("currentPassword")}
-                placeholder="Enter current password"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              {errors.currentPassword && (
-                <p className="text-xs text-rose-500 mt-1">{errors.currentPassword.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
-                New Password
-              </label>
-              <input
-                type="password"
-                {...register("newPassword")}
-                placeholder="Minimum 8 characters"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              {errors.newPassword && (
-                <p className="text-xs text-rose-500 mt-1">{errors.newPassword.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
-                Confirm New Password
-              </label>
-              <input
-                type="password"
-                {...register("confirmPassword")}
-                placeholder="Re-enter new password"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              {errors.confirmPassword && (
-                <p className="text-xs text-rose-500 mt-1">{errors.confirmPassword.message}</p>
-              )}
-            </div>
-
-            <div className="pt-2">
-              <Button type="submit" disabled={isSubmittingPassword}>
-                {isSubmittingPassword ? "Updating Password..." : "Update Password"}
-              </Button>
-            </div>
-          </form>
-        </Card>
-
-        {/* Quick Links */}
-        <div className="flex items-center justify-between text-xs text-neutral-500 px-2">
-          <Link href="/settings" className="hover:text-indigo-600 transition-colors">
-            Notification Preferences & Settings →
-          </Link>
-          <Link href="/appointments" className="hover:text-indigo-600 transition-colors">
-            Manage Bookings →
-          </Link>
-        </div>
-
-        {/* Sign Out Confirm Dialog */}
-        <ConfirmDialog
-          isOpen={isLogoutDialogOpen}
-          title="Sign Out"
-          description="Are you sure you want to sign out of your account on this device?"
-          confirmLabel="Sign Out"
-          cancelLabel="Stay Logged In"
-          onConfirm={async () => {
-            await logout();
-            setIsLogoutDialogOpen(false);
-            router.push("/");
-          }}
-          onCancel={() => setIsLogoutDialogOpen(false)}
-        />
       </div>
-    </CustomerLayout>
+
+      {/* Change Password Card */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+            <KeyRound className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900">
+              Change Password
+            </h3>
+            <p className="text-xs text-slate-500">
+              Keep your account secure with a strong unique password
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit(onPasswordSubmit)} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Current Password
+            </label>
+            <input
+              type="password"
+              {...register("currentPassword")}
+              placeholder="Enter current password"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+            {errors.currentPassword && (
+              <p className="text-xs text-rose-500 mt-1">{errors.currentPassword.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              New Password
+            </label>
+            <input
+              type="password"
+              {...register("newPassword")}
+              placeholder="Minimum 8 characters"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+            {errors.newPassword && (
+              <p className="text-xs text-rose-500 mt-1">{errors.newPassword.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Confirm New Password
+            </label>
+            <input
+              type="password"
+              {...register("confirmPassword")}
+              placeholder="Re-enter new password"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+            {errors.confirmPassword && (
+              <p className="text-xs text-rose-500 mt-1">{errors.confirmPassword.message}</p>
+            )}
+          </div>
+
+          <div className="pt-2">
+            <Button
+              type="submit"
+              disabled={isSubmittingPassword}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl"
+            >
+              {isSubmittingPassword ? "Updating Password..." : "Update Password"}
+            </Button>
+          </div>
+        </form>
+      </div>
+
+      {/* Quick Navigation Links */}
+      <div className="flex items-center justify-between text-xs font-semibold text-slate-500 px-2">
+        <Link href="/settings" className="hover:text-emerald-700 transition-colors inline-flex items-center gap-1">
+          Notification Preferences & Channels
+          <ChevronRight className="w-3.5 h-3.5" />
+        </Link>
+        <Link href="/appointments" className="hover:text-emerald-700 transition-colors inline-flex items-center gap-1">
+          Manage Bookings
+          <ChevronRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+
+      {/* Sign Out Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={isLogoutDialogOpen}
+        title="Sign Out"
+        description="Are you sure you want to sign out of your account on this device?"
+        confirmLabel="Sign Out"
+        cancelLabel="Stay Logged In"
+        onConfirm={async () => {
+          await logout();
+          setIsLogoutDialogOpen(false);
+          router.push("/");
+        }}
+        onCancel={() => setIsLogoutDialogOpen(false)}
+      />
+    </div>
   );
 }

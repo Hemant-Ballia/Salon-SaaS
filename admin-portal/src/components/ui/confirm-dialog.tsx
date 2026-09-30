@@ -30,29 +30,32 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth="sm">
-      <div className="flex items-start gap-3">
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-            variant === "destructive" ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"
-          }`}
-        >
-          <AlertTriangle className="h-5 w-5" />
+      <div className="p-5 sm:p-6 pt-4">
+        <div className="flex items-start gap-3">
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+              variant === "destructive" ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"
+            }`}
+          >
+            <AlertTriangle className="h-5 w-5" />
+          </div>
+          <p className="text-sm text-slate-600 leading-relaxed">{message}</p>
         </div>
-        <p className="text-sm text-slate-600 leading-relaxed">{message}</p>
-      </div>
 
-      <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
-        <Button variant="outline" size="sm" onClick={onClose} disabled={isLoading}>
-          {cancelText}
-        </Button>
-        <Button
-          variant={variant === "destructive" ? "destructive" : "primary"}
-          size="sm"
-          onClick={onConfirm}
-          isLoading={isLoading}
-        >
-          {confirmText}
-        </Button>
+        <div className="mt-6 flex justify-end gap-2.5 border-t border-slate-100 pt-4">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={isLoading}>
+            {cancelText}
+          </Button>
+          <Button
+            variant={variant === "destructive" ? "destructive" : "primary"}
+            size="sm"
+            onClick={onConfirm}
+            isLoading={isLoading}
+            className={variant === "destructive" ? "" : "bg-emerald-600 hover:bg-emerald-700"}
+          >
+            {confirmText}
+          </Button>
+        </div>
       </div>
     </Modal>
   );

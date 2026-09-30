@@ -114,7 +114,7 @@ export default function BusinessDetailPage() {
                 <StatusBadge status={business.status} />
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Slug: <span className="font-mono text-slate-700">/{business.slug}</span> * Type:{" "}
+                Slug: <span className="font-mono text-slate-700">/{business.slug}</span> &bull; Type:{" "}
                 <span className="font-semibold text-slate-700">
                   {business.businessType.replace(/_/g, " ")}
                 </span>

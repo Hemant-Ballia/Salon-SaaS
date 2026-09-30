@@ -33,7 +33,7 @@ import {
 
 export default function StaffQueuePage() {
   const queryClient = useQueryClient();
-  const { staffId } = useAuth();
+  const { staffId, staff, user } = useAuth();
   const { socket, isConnected } = useSocket();
 
   const { data: queue = [], isLoading, refetch, isRefetching } = useQuery({
@@ -120,32 +120,37 @@ export default function StaffQueuePage() {
   const calledEntries = queue.filter((e) => e.status === "CALLED");
   const waitingEntries = queue.filter((e) => e.status === "WAITING");
 
+  const upNextEntries = waitingEntries.slice(0, 2);
+  const remainingWaiting = waitingEntries.slice(2);
+
+  const businessName = staff?.business?.name || user?.staffProfile?.business?.name || "Floor Counter";
+
   return (
     <div className="space-y-6">
-      {/* Header & Connection Indicator */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Top Header & Connection Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-black tracking-tight text-slate-900">
-              Counter Live Queue
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Live Queue
             </h1>
             <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 isConnected
-                  ? "bg-emerald-100 text-emerald-800"
-                  : "bg-amber-100 text-amber-800"
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : "bg-amber-50 text-amber-700 border border-amber-200"
               }`}
             >
               <span
-                className={`w-2 h-2 rounded-full ${
+                className={`w-1.5 h-1.5 rounded-full ${
                   isConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
                 }`}
               />
-              {isConnected ? "Socket.IO Live" : "Polling"}
+              {isConnected ? "Live Counter Sync" : "Connecting..."}
             </span>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Tap call, serve, complete or skip to manage your floor operations.
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            {businessName} • Operational floor queue and client seating console.
           </p>
         </div>
 
@@ -154,220 +159,299 @@ export default function StaffQueuePage() {
           size="sm"
           onClick={() => refetch()}
           isLoading={isRefetching}
-          className="gap-2 self-start sm:self-auto text-xs"
+          className="gap-1.5 self-start sm:self-auto text-xs font-medium h-9 text-slate-700"
         >
-          <RefreshCw className="w-3.5 h-3.5" />
+          <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
           Refresh
         </Button>
       </div>
 
       {isLoading ? (
         <div className="space-y-4">
-          <Skeleton className="h-52 w-full rounded-2xl" />
-          <Skeleton className="h-64 w-full rounded-2xl" />
+          <Skeleton className="h-44 w-full rounded-2xl" />
+          <Skeleton className="h-56 w-full rounded-2xl" />
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Active Serving Section */}
-          {servingEntries.length > 0 ? (
-            <div className="space-y-3">
-              <h2 className="text-xs font-black uppercase tracking-wider text-emerald-800 flex items-center gap-2">
-                <Radio className="w-4 h-4 text-emerald-600 animate-pulse" />
-                Active Counter Client
-              </h2>
+          {/* 1. NOW SERVING (High-Impact Operational Hero) */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                Now Serving
+              </span>
+              <span className="text-xs text-slate-400 font-medium">
+                {servingEntries.length} Active in Chair
+              </span>
+            </div>
 
+            {servingEntries.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {servingEntries.map((entry) => {
                   const clientName =
-                    entry.customerName || entry.customer?.user?.displayName || entry.customer?.user?.name || "Walk-in Guest";
+                    entry.customerName ||
+                    entry.customer?.user?.displayName ||
+                    entry.customer?.user?.name ||
+                    "Walk-in Guest";
 
                   return (
-                    <Card key={entry.id} className="border-2 border-emerald-500 bg-emerald-50/40 shadow-md">
-                      <CardContent className="p-6 flex flex-col justify-between h-full space-y-6">
-                        <div>
-                          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-200 text-emerald-800">
-                            Currently In Chair
+                    <div
+                      key={entry.id}
+                      className="p-5 rounded-2xl border-2 border-emerald-500/80 bg-emerald-50/40 shadow-xs flex flex-col justify-between space-y-5"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-900">
+                            In Chair
                           </span>
-                          <div className="mt-3">
-                            <span className="text-3xl sm:text-4xl font-black text-slate-900">
-                              Token #{entry.tokenNumber}
-                            </span>
-                            <h3 className="text-lg font-bold text-slate-800 mt-1">
-                              {clientName}
-                            </h3>
-                            <p className="text-xs text-slate-500">
-                              Service: {entry.serviceName || entry.service?.name || "General Service"}
-                            </p>
-                          </div>
+                          <span className="text-xs text-slate-500 font-medium">
+                            Token Assigned
+                          </span>
                         </div>
 
-                        {/* Large Actionable Buttons */}
-                        <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-emerald-200/60">
-                          <Button
-                            size="lg"
-                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 font-extrabold text-base gap-2 shadow-md shadow-emerald-700/20"
-                            isLoading={completeMutation.isPending}
-                            onClick={() => completeMutation.mutate(entry.id)}
-                          >
-                            <CheckCircle2 className="w-5 h-5" />
-                            Finish & Complete
-                          </Button>
-                          <Button
-                            size="lg"
-                            variant="outline"
-                            className="border-amber-300 text-amber-800 hover:bg-amber-50 font-bold text-base gap-2"
-                            isLoading={skipMutation.isPending}
-                            onClick={() => skipMutation.mutate(entry.id)}
-                          >
-                            <SkipForward className="w-5 h-5" />
-                            Skip
-                          </Button>
+                        <div className="mt-3">
+                          <div className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+                            #{entry.tokenNumber}
+                          </div>
+                          <h2 className="text-lg font-bold text-slate-800 mt-1">
+                            {clientName}
+                          </h2>
+                          <p className="text-xs text-slate-600 font-medium mt-0.5">
+                            {entry.serviceName || entry.service?.name || "General Treatment"}
+                          </p>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+
+                      {/* State-driven actions */}
+                      <div className="flex items-center gap-2 pt-3 border-t border-emerald-200/60">
+                        <Button
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs h-9 gap-1.5 shadow-xs"
+                          isLoading={completeMutation.isPending}
+                          onClick={() => completeMutation.mutate(entry.id)}
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          Complete Service
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-medium h-9 px-3"
+                          isLoading={skipMutation.isPending}
+                          onClick={() => skipMutation.mutate(entry.id)}
+                        >
+                          Skip
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-6 rounded-2xl bg-white border border-slate-200/80 text-center space-y-1 shadow-xs">
+                <p className="font-bold text-slate-800 text-sm">Chair is Available</p>
+                <p className="text-xs text-slate-500">
+                  Call the next guest from the waiting line below to begin service.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 2. CALLED GUESTS (Waiting to be seated) */}
+          {calledEntries.length > 0 && (
+            <div className="space-y-2.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-sky-700 flex items-center gap-1.5">
+                <PhoneCall className="w-3.5 h-3.5 text-sky-600" />
+                Called Guests (Proceeding to Chair)
+              </span>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {calledEntries.map((entry) => {
+                  const clientName =
+                    entry.customerName ||
+                    entry.customer?.user?.displayName ||
+                    entry.customer?.user?.name ||
+                    "Walk-in Guest";
+
+                  return (
+                    <div
+                      key={entry.id}
+                      className="p-4 rounded-2xl border border-sky-200 bg-sky-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl font-bold text-slate-900">
+                            #{entry.tokenNumber}
+                          </span>
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-sky-200 text-sky-800">
+                            Called
+                          </span>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-800 mt-0.5">{clientName}</p>
+                        <p className="text-xs text-slate-500">
+                          {entry.serviceName || entry.service?.name || "General Service"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          className="bg-sky-600 hover:bg-sky-700 text-white font-medium text-xs h-8 px-3 gap-1.5"
+                          isLoading={serveMutation.isPending}
+                          onClick={() => serveMutation.mutate(entry.id)}
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          Start Service
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-slate-500 hover:text-slate-800 text-xs h-8 px-2"
+                          isLoading={skipMutation.isPending}
+                          onClick={() => skipMutation.mutate(entry.id)}
+                        >
+                          Skip
+                        </Button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
             </div>
-          ) : (
-            /* No Client in Chair Alert */
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center space-y-2 shadow-xs">
-              <p className="font-bold text-slate-900 text-base">Counter is Available</p>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Call the next customer from the waiting list below to start their treatment.
-              </p>
-            </div>
           )}
 
-          {/* Called / Waiting At Desk Section */}
-          {calledEntries.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-xs font-black uppercase tracking-wider text-blue-800 flex items-center gap-2">
-                <PhoneCall className="w-4 h-4 text-blue-600" />
-                Called Guests (Waiting to Seat)
-              </h2>
+          {/* 3. UP NEXT (First 1-2 in line) */}
+          {upNextEntries.length > 0 && (
+            <div className="space-y-2.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-amber-500" />
+                Up Next
+              </span>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {calledEntries.map((entry) => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {upNextEntries.map((entry) => {
                   const clientName =
-                    entry.customerName || entry.customer?.user?.displayName || entry.customer?.user?.name || "Walk-in Guest";
+                    entry.customerName ||
+                    entry.customer?.user?.displayName ||
+                    entry.customer?.user?.name ||
+                    "Walk-in Guest";
 
                   return (
-                    <Card key={entry.id} className="border border-blue-300 bg-blue-50/30">
-                      <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                            Called
-                          </span>
-                          <h4 className="text-2xl font-black text-slate-900 mt-1">
-                            Token #{entry.tokenNumber}
-                          </h4>
-                          <p className="text-sm font-bold text-slate-800">{clientName}</p>
-                          <p className="text-xs text-slate-500">
+                    <div
+                      key={entry.id}
+                      className="p-4 rounded-xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-800 font-black flex items-center justify-center text-sm shrink-0 border border-amber-200/60">
+                          #{entry.tokenNumber}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900 text-sm truncate">{clientName}</p>
+                          <p className="text-xs text-slate-500 truncate">
                             {entry.serviceName || entry.service?.name || "General Service"}
                           </p>
                         </div>
+                      </div>
 
-                        <div className="flex items-center gap-2 pt-2 sm:pt-0">
-                          <Button
-                            size="lg"
-                            className="flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2"
-                            isLoading={serveMutation.isPending}
-                            onClick={() => serveMutation.mutate(entry.id)}
-                          >
-                            <Play className="w-4 h-4" />
-                            Start Service
-                          </Button>
-                          <Button
-                            size="lg"
-                            variant="ghost"
-                            className="text-amber-700 hover:bg-amber-50"
-                            isLoading={skipMutation.isPending}
-                            onClick={() => skipMutation.mutate(entry.id)}
-                          >
-                            Skip
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs h-8 px-3 gap-1"
+                          isLoading={callMutation.isPending}
+                          onClick={() => callMutation.mutate(entry.id)}
+                        >
+                          <PhoneCall className="w-3 h-3" />
+                          Call
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-slate-400 hover:text-slate-700 text-xs h-8 px-2"
+                          isLoading={skipMutation.isPending}
+                          onClick={() => skipMutation.mutate(entry.id)}
+                        >
+                          Skip
+                        </Button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
             </div>
           )}
 
-          {/* Waiting Queue List */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-500" />
+          {/* 4. WAITING QUEUE TABLE / LIST */}
+          <div className="rounded-2xl bg-white border border-slate-200/80 overflow-hidden shadow-xs">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                <Users className="w-4 h-4 text-slate-400" />
                 Waiting Line ({waitingEntries.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {waitingEntries.length === 0 ? (
-                <div className="p-8 text-center text-sm text-slate-500">
-                  No customers waiting in queue.
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {waitingEntries.map((entry, idx) => {
-                    const clientName =
-                      entry.customerName || entry.customer?.user?.displayName || entry.customer?.user?.name || "Walk-in Guest";
+              </span>
+              <span className="text-xs text-slate-400">Realtime FIFO order</span>
+            </div>
 
-                    return (
-                      <div
-                        key={entry.id}
-                        className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/80 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 font-black flex items-center justify-center text-xs shrink-0">
-                            #{idx + 1}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg font-black text-emerald-700">
-                                Token #{entry.tokenNumber}
-                              </span>
-                              <span className="text-xs font-semibold text-slate-400">
-                                ({entry.estimatedWaitMinutes ? `${entry.estimatedWaitMinutes}m wait` : "Up next"})
-                              </span>
-                            </div>
-                            <p className="font-bold text-slate-900 text-sm">{clientName}</p>
-                            <p className="text-xs text-slate-500">
-                              {entry.serviceName || entry.service?.name || "General Service"}
-                            </p>
-                          </div>
+            {waitingEntries.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-500">
+                No customers are currently waiting in the lobby queue.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {waitingEntries.map((entry, idx) => {
+                  const clientName =
+                    entry.customerName ||
+                    entry.customer?.user?.displayName ||
+                    entry.customer?.user?.name ||
+                    "Walk-in Guest";
+
+                  return (
+                    <div
+                      key={entry.id}
+                      className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors text-xs"
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <span className="w-6 text-center text-slate-400 font-semibold text-[11px]">
+                          {idx + 1}
+                        </span>
+                        <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-800 font-bold flex items-center justify-center text-xs shrink-0">
+                          #{entry.tokenNumber}
                         </div>
-
-                        <div className="flex items-center gap-2 self-end sm:self-center">
-                          <Button
-                            size="md"
-                            variant="outline"
-                            className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-bold gap-1.5"
-                            isLoading={callMutation.isPending}
-                            onClick={() => callMutation.mutate(entry.id)}
-                          >
-                            <PhoneCall className="w-4 h-4" />
-                            Call Token
-                          </Button>
-                          <Button
-                            size="md"
-                            variant="ghost"
-                            className="text-amber-700 hover:bg-amber-50 text-xs"
-                            isLoading={skipMutation.isPending}
-                            onClick={() => skipMutation.mutate(entry.id)}
-                          >
-                            Skip
-                          </Button>
+                        <div>
+                          <p className="font-semibold text-slate-900 text-sm">{clientName}</p>
+                          <p className="text-slate-500 text-xs">
+                            {entry.serviceName || entry.service?.name || "Treatment"}
+                            {entry.estimatedWaitMinutes ? (
+                              <span className="text-slate-400 ml-2">
+                                • ~{entry.estimatedWaitMinutes}m wait
+                              </span>
+                            ) : null}
+                          </p>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 text-xs font-medium h-7 px-2.5 gap-1"
+                          isLoading={callMutation.isPending}
+                          onClick={() => callMutation.mutate(entry.id)}
+                        >
+                          <PhoneCall className="w-3 h-3" />
+                          Call Token
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-slate-400 hover:text-slate-700 text-xs h-7 px-2"
+                          isLoading={skipMutation.isPending}
+                          onClick={() => skipMutation.mutate(entry.id)}
+                        >
+                          Skip
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

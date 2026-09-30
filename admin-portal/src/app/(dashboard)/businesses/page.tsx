@@ -21,13 +21,15 @@ import { Business } from "@/types/models";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import NextLink from "next/link";
-import { Eye, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Eye, CheckCircle2, XCircle, AlertTriangle, Plus } from "lucide-react";
+import { CreateBusinessModal } from "@/components/businesses/create-business-modal";
 
 export default function BusinessesPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeAction, setActiveAction] = useState<{
     business: Business;
     action: "approve" | "reject" | "suspend" | "activate";
@@ -194,20 +196,42 @@ export default function BusinessesPage() {
             className="w-full sm:w-80"
           />
 
-          <Select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setPage(1);
-            }}
-            options={[
-              { value: "ALL", label: "All Statuses" },
-              { value: "PENDING", label: "Pending Approval" },
-              { value: "ACTIVE", label: "Active" },
-              { value: "SUSPENDED", label: "Suspended" },
-              { value: "REJECTED", label: "Rejected" },
-            ]}
-          />
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            <Select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              options={[
+                { value: "ALL", label: "All Statuses" },
+                { value: "PENDING", label: "Pending Approval" },
+                { value: "ACTIVE", label: "Active" },
+                { value: "SUSPENDED", label: "Suspended" },
+                { value: "REJECTED", label: "Rejected" },
+              ]}
+            />
+
+            <NextLink href="/businesses/new">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9.5 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 border-slate-200 shrink-0 gap-1.5 cursor-pointer"
+              >
+                Registration Wizard
+              </Button>
+            </NextLink>
+
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="h-9.5 px-3.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shrink-0 gap-1.5 cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              Register Business
+            </Button>
+          </div>
         </div>
 
         {/* Data Table */}
@@ -252,6 +276,12 @@ export default function BusinessesPage() {
             }
           />
         )}
+
+        {/* Create Business Modal */}
+        <CreateBusinessModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+        />
       </div>
     </AdminLayout>
   );

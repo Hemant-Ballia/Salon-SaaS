@@ -8,7 +8,7 @@ import { Toaster } from "sonner";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Admin Portal â Salon SaaS Platform",
+  title: "Admin Portal — Salon SaaS Platform",
   description: "Enterprise administration console for Salon SaaS platform operations",
 };
 

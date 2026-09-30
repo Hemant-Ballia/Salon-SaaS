@@ -31,12 +31,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => 
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50/60 font-sans text-slate-900 antialiased">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 font-sans text-slate-900 antialiased">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex flex-1 flex-col min-w-0 h-full overflow-hidden">
         <Topbar onMenuClick={() => setSidebarOpen(true)} title={title} />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">{children}</main>
+        <main className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 lg:p-5 max-w-7xl w-full mx-auto flex flex-col">
+          {children}
+        </main>
       </div>
     </div>
   );
